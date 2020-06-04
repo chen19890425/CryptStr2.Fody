@@ -2,4 +2,6 @@
 # 此 .gitignore 文件已由 Microsoft(R) Visual Studio 自动创建。
 ################################################################################
 
-/.vs/CryptStr2.Fody/v16
+.vs
+bin
+obj
