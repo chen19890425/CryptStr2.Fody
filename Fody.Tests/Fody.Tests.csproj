@@ -5,6 +5,7 @@
 		<Authors>cxl</Authors>
 		<Company />
 		<OutputType>Exe</OutputType>
+		<PackageProjectUrl>https://github.com/chen19890425/CryptStr2.Fody</PackageProjectUrl>
 	</PropertyGroup>
 
 	<ItemGroup>
