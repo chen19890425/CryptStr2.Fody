@@ -186,6 +186,7 @@ namespace CryptStr2
             var getUtf8 = ModuleDefinition.ImportReference(typeof(Encoding).GetMethod("get_UTF8", Type.EmptyTypes));
             var getString = ModuleDefinition.ImportReference(typeof(Encoding).GetMethod("GetString", new Type[] { typeof(byte[]), typeof(Int32), typeof(Int32) }));
             var lazyValue = ModuleDefinition.ImportReference(typeof(Lazy<byte[]>).GetMethod("get_Value"));
+            var intern = ModuleDefinition.ImportReference(typeof(string).GetMethod("Intern", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static));
 
             _lookupMethod = new MethodDefinition($"CryptGet_{_Id}", MethodAttributes.HideBySig | MethodAttributes.Static, ModuleDefinition.ImportReference(typeof(string)));
             _lookupMethod.Parameters.Add(new ParameterDefinition("ndx", ParameterAttributes.None, ModuleDefinition.ImportReference(typeof(int))));
@@ -214,6 +215,7 @@ namespace CryptStr2
             il.Append(il.Create(OpCodes.Ldarg_0));
             il.Append(il.Create(OpCodes.Ldarg_1));
             il.Append(il.Create(OpCodes.Callvirt, getString));
+            il.Append(il.Create(OpCodes.Call, intern));
             il.Append(il.Create(OpCodes.Stloc_0));
 
             il.Append(il.Create(OpCodes.Ldsfld, _stringsArrayField));
