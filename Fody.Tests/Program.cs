@@ -10,9 +10,10 @@ namespace Fody.Tests
         {
             var result = WeaverTestHelper.ExecuteTestRun(
                 new ModuleWeaver(),
-                Path.Combine(AppContext.BaseDirectory, "dlls", "Sys.Utility.dll"),
+                Path.Combine(AppContext.BaseDirectory, "dlls", "Clock.exe"),
                 false);
 
+            Console.WriteLine("Press any key to exit .");
             Console.ReadKey();
         }
     }

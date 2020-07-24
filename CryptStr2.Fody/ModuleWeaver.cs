@@ -67,7 +67,7 @@ namespace CryptStr2
                 ProcessMethod(body);
             }
 
-            Finish_CryptInit(EncryptBytes(_stringBytes.ToArray()), _stringBytes.Count);
+            Finish_CryptInit(moduleType, EncryptBytes(_stringBytes.ToArray()), _stringBytes.Count);
         }
 
         public override IEnumerable<string> GetAssembliesForScanning()
@@ -75,7 +75,7 @@ namespace CryptStr2
             return Enumerable.Empty<string>();
         }
 
-        private string EncryptBytes(byte[] plainText)
+        private byte[] EncryptBytes(byte[] plainText)
         {
             string pw = Guid.NewGuid().ToString();
             byte[] salt = Guid.NewGuid().ToByteArray();
@@ -100,7 +100,8 @@ namespace CryptStr2
                 byte[] bytes = memStream.GetBuffer();
                 int len = (int)memStream.Length;
                 int pos = (int)memStream.Position;
-                return Convert.ToBase64String(bytes, 0, len, Base64FormattingOptions.None);
+
+                return bytes;
             }
         }
 
@@ -229,48 +230,69 @@ namespace CryptStr2
             moduleType.Methods.Add(_lookupMethod);
         }
 
-        private void Finish_CryptInit(string cipherBytes, int byteCount)
+        private void Finish_CryptInit(TypeDefinition moduleType, byte[] cipherBytes, int byteCount)
         {
             var il = _decryptMethod.Body.GetILProcessor();
 
             _decryptMethod.Body.InitLocals = true;
+
+            VariableDefinition memStream = _decryptMethod.AddLocal(typeof(Stream));
             VariableDefinition keyBytes = _decryptMethod.AddLocal(typeof(byte[]));
             VariableDefinition aesProvider = _decryptMethod.AddLocal(typeof(AesCryptoServiceProvider));
             VariableDefinition cryptoTransform = _decryptMethod.AddLocal(typeof(ICryptoTransform));
-            VariableDefinition memStream = _decryptMethod.AddLocal(typeof(MemoryStream));
             VariableDefinition cryptoStream = _decryptMethod.AddLocal(typeof(CryptoStream));
             VariableDefinition retBytes = _decryptMethod.AddLocal(typeof(byte[]));
 
+            var resourceName = $"data-{this._Id}";
+            var new_bytes = new byte[_key.Length + cipherBytes.Length];
+
+            Array.Copy(_key, new_bytes, _key.Length);
+            Array.Copy(cipherBytes, 0, new_bytes, _key.Length, cipherBytes.Length);
+
+            EmbeddedResource resource = new EmbeddedResource(resourceName, ManifestResourceAttributes.Private, new_bytes);
+
+            this.ModuleDefinition.Resources.Add(resource);
+
             var aesCtor = ModuleDefinition.ImportReference(typeof(AesCryptoServiceProvider).GetConstructor(Type.EmptyTypes));
             var setPadding = ModuleDefinition.ImportReference(typeof(SymmetricAlgorithm).GetMethod("set_Padding", new Type[] { typeof(PaddingMode) }));
-            var fromBase64 = ModuleDefinition.ImportReference(typeof(Convert).GetMethod("FromBase64String", new Type[] { typeof(string) }));
             var createDecryptor = ModuleDefinition.ImportReference(typeof(SymmetricAlgorithm).GetMethod("CreateDecryptor", new Type[] { typeof(byte[]), typeof(byte[]) }));
-            var memStreamCtor = ModuleDefinition.ImportReference(typeof(MemoryStream).GetConstructor(new Type[] { typeof(byte[]) }));
             var cryptoStreamCtor = ModuleDefinition.ImportReference(typeof(CryptoStream).GetConstructor(new Type[] { typeof(Stream), typeof(ICryptoTransform), typeof(CryptoStreamMode) }));
             var readStream = ModuleDefinition.ImportReference(typeof(Stream).GetMethod("Read", new Type[] { typeof(byte[]), typeof(int), typeof(int) }));
             var disposeStream = ModuleDefinition.ImportReference(typeof(Stream).GetMethod("Dispose", Type.EmptyTypes));
             var dispose = ModuleDefinition.ImportReference(typeof(IDisposable).GetMethod("Dispose", Type.EmptyTypes));
             var disposeSymmetric = ModuleDefinition.ImportReference(typeof(SymmetricAlgorithm).GetMethod("Dispose", Type.EmptyTypes));
+            var getTypeFromHandle = ModuleDefinition.ImportReference(typeof(Type).GetMethod("GetTypeFromHandle", new Type[] { typeof(RuntimeTypeHandle) }));
+            var get_Assembly = ModuleDefinition.ImportReference(typeof(Type).GetProperty("Assembly").GetGetMethod());
+            var getManifestResourceStream = ModuleDefinition.ImportReference(typeof(System.Reflection.Assembly).GetMethod("GetManifestResourceStream", new[] { typeof(string) }));
+            var streamRead = ModuleDefinition.ImportReference(typeof(Stream).GetMethod("Read", new[] { typeof(byte[]), typeof(int), typeof(int) }));
 
-            il.Append(il.Create(OpCodes.Ldstr, Convert.ToBase64String(_key)));
-            il.Append(il.Create(OpCodes.Call, fromBase64));
+            il.Append(il.Create(OpCodes.Ldtoken, moduleType));
+            il.Append(il.Create(OpCodes.Call, getTypeFromHandle));
+            il.Append(il.Create(OpCodes.Callvirt, get_Assembly));
+            il.Append(il.Create(OpCodes.Ldstr, resourceName));
+            il.Append(il.Create(OpCodes.Callvirt, getManifestResourceStream));
             il.Append(il.Create(OpCodes.Stloc_0));
-            il.Append(il.Create(OpCodes.Newobj, aesCtor));
+            il.Append(il.Create(OpCodes.Ldc_I4, _key.Length));
+            il.Append(il.Create(OpCodes.Newarr, ModuleDefinition.ImportReference(typeof(byte))));
             il.Append(il.Create(OpCodes.Stloc_1));
+            il.Append(il.Create(OpCodes.Ldloc_0));
             il.Append(il.Create(OpCodes.Ldloc_1));
+            il.Append(il.Create(OpCodes.Ldc_I4_0));
+            il.Append(il.Create(OpCodes.Ldc_I4, _key.Length));
+            il.Append(il.Create(OpCodes.Callvirt, streamRead));
+            il.Append(il.Create(OpCodes.Pop));
+            il.Append(il.Create(OpCodes.Newobj, aesCtor));
+            il.Append(il.Create(OpCodes.Stloc_2));
+            il.Append(il.Create(OpCodes.Ldloc_2));
             il.Append(il.Create(OpCodes.Ldc_I4_1));
             il.Append(il.Create(OpCodes.Callvirt, setPadding));
-            il.Append(il.Create(OpCodes.Ldloc_1));
-            il.Append(il.Create(OpCodes.Ldloc_0));
-            il.Append(il.Create(OpCodes.Ldloc_0));
-            il.Append(il.Create(OpCodes.Callvirt, createDecryptor));
-            il.Append(il.Create(OpCodes.Stloc_2));
-            il.Append(il.Create(OpCodes.Ldstr, cipherBytes));
-            il.Append(il.Create(OpCodes.Call, fromBase64));
-            il.Append(il.Create(OpCodes.Newobj, memStreamCtor));
-            il.Append(il.Create(OpCodes.Stloc_3));
-            il.Append(il.Create(OpCodes.Ldloc_3));
             il.Append(il.Create(OpCodes.Ldloc_2));
+            il.Append(il.Create(OpCodes.Ldloc_1));
+            il.Append(il.Create(OpCodes.Ldloc_1));
+            il.Append(il.Create(OpCodes.Callvirt, createDecryptor));
+            il.Append(il.Create(OpCodes.Stloc_3));
+            il.Append(il.Create(OpCodes.Ldloc_0));
+            il.Append(il.Create(OpCodes.Ldloc_3));
             il.Append(il.Create(OpCodes.Ldc_I4_0));
             il.Append(il.Create(OpCodes.Newobj, cryptoStreamCtor));
             il.Append(il.Create(OpCodes.Stloc_S, cryptoStream));
@@ -286,12 +308,11 @@ namespace CryptStr2
             il.Append(il.Create(OpCodes.Ldloc_S, cryptoStream));
             il.Append(il.Create(OpCodes.Callvirt, disposeStream));
             il.Append(il.Create(OpCodes.Ldloc_3));
-            il.Append(il.Create(OpCodes.Callvirt, disposeStream));
-            il.Append(il.Create(OpCodes.Ldloc_2));
             il.Append(il.Create(OpCodes.Callvirt, dispose));
-            il.Append(il.Create(OpCodes.Ldloc_1));
+            il.Append(il.Create(OpCodes.Ldloc_2));
             il.Append(il.Create(OpCodes.Callvirt, disposeSymmetric));
-
+            il.Append(il.Create(OpCodes.Ldloc_0));
+            il.Append(il.Create(OpCodes.Callvirt, disposeStream));
             il.Append(il.Create(OpCodes.Ldloc_S, retBytes));
             il.Append(il.Create(OpCodes.Ret));
         }
