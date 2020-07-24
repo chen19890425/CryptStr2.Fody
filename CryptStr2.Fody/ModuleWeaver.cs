@@ -264,7 +264,6 @@ namespace CryptStr2
             var getTypeFromHandle = ModuleDefinition.ImportReference(typeof(Type).GetMethod("GetTypeFromHandle", new Type[] { typeof(RuntimeTypeHandle) }));
             var get_Assembly = ModuleDefinition.ImportReference(typeof(Type).GetProperty("Assembly").GetGetMethod());
             var getManifestResourceStream = ModuleDefinition.ImportReference(typeof(System.Reflection.Assembly).GetMethod("GetManifestResourceStream", new[] { typeof(string) }));
-            var streamRead = ModuleDefinition.ImportReference(typeof(Stream).GetMethod("Read", new[] { typeof(byte[]), typeof(int), typeof(int) }));
 
             il.Append(il.Create(OpCodes.Ldtoken, moduleType));
             il.Append(il.Create(OpCodes.Call, getTypeFromHandle));
@@ -279,7 +278,7 @@ namespace CryptStr2
             il.Append(il.Create(OpCodes.Ldloc_1));
             il.Append(il.Create(OpCodes.Ldc_I4_0));
             il.Append(il.Create(OpCodes.Ldc_I4, _key.Length));
-            il.Append(il.Create(OpCodes.Callvirt, streamRead));
+            il.Append(il.Create(OpCodes.Callvirt, readStream));
             il.Append(il.Create(OpCodes.Pop));
             il.Append(il.Create(OpCodes.Newobj, aesCtor));
             il.Append(il.Create(OpCodes.Stloc_2));
