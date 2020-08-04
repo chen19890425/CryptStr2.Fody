@@ -37,6 +37,8 @@ namespace CryptStr2
         private MethodDefinition _decryptMethod;
         private MethodDefinition _lookupMethod;
 
+        public override bool ShouldCleanReference => true;
+
         public override void Execute()
         {
             if (Config.HasAttributes)
