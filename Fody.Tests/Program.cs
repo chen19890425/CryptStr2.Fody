@@ -11,7 +11,8 @@ namespace Fody.Tests
             var result = WeaverTestHelper.ExecuteTestRun(
                 new ModuleWeaver(),
                 Path.Combine(AppContext.BaseDirectory, "dlls", "Clock.exe"),
-                false);
+                runPeVerify: false,
+                writeSymbols: true);
 
             Console.WriteLine("Press any key to exit .");
             Console.ReadKey();
