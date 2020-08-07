@@ -34,8 +34,8 @@ namespace CryptStr2
         private FieldDefinition _decryptedField;
         private FieldDefinition _stringsArrayField;
 
-        private MethodDefinition _decryptMethod;
-        private MethodDefinition _lookupMethod;
+        private MethodDefinition _cryptInitMethod;
+        private MethodDefinition _cryptGetMethod;
 
         public override bool ShouldCleanReference => true;
 
@@ -139,10 +139,10 @@ namespace CryptStr2
 
         private void Create_CryptInit(TypeDefinition moduleType)
         {
-            _decryptMethod = new MethodDefinition($"CryptInit_{_Id}", MethodAttributes.HideBySig | MethodAttributes.Static | MethodAttributes.CompilerControlled, ModuleDefinition.ImportReference(typeof(byte[])));
-            AddAttrs(_decryptMethod.CustomAttributes);
-            _decryptMethod.Body = new MethodBody(_decryptMethod);
-            moduleType.Methods.Add(_decryptMethod);
+            _cryptInitMethod = new MethodDefinition($"CryptInit_{_Id}", MethodAttributes.HideBySig | MethodAttributes.Static | MethodAttributes.CompilerControlled, ModuleDefinition.ImportReference(typeof(byte[])));
+            AddAttrs(_cryptInitMethod.CustomAttributes);
+            _cryptInitMethod.Body = new MethodBody(_cryptInitMethod);
+            moduleType.Methods.Add(_cryptInitMethod);
         }
 
         private void Create_Cctor(TypeDefinition moduleType, int ldstrLength)
@@ -160,7 +160,7 @@ namespace CryptStr2
                 instructions.Add(Instruction.Create(OpCodes.Newarr, ModuleDefinition.ImportReference(typeof(string))));
                 instructions.Add(Instruction.Create(OpCodes.Stsfld, _stringsArrayField));
                 instructions.Add(Instruction.Create(OpCodes.Ldnull));
-                instructions.Add(Instruction.Create(OpCodes.Ldftn, _decryptMethod));
+                instructions.Add(Instruction.Create(OpCodes.Ldftn, _cryptInitMethod));
                 instructions.Add(Instruction.Create(OpCodes.Newobj, ModuleDefinition.ImportReference(typeof(Func<byte[]>).GetConstructors()[0])));
                 instructions.Add(Instruction.Create(OpCodes.Newobj, ModuleDefinition.ImportReference(typeof(Lazy<byte[]>).GetConstructor(new[] { typeof(Func<byte[]>) }))));
                 instructions.Add(Instruction.Create(OpCodes.Stsfld, _decryptedField));
@@ -191,16 +191,16 @@ namespace CryptStr2
             var lazyValue = ModuleDefinition.ImportReference(typeof(Lazy<byte[]>).GetMethod("get_Value"));
             var intern = ModuleDefinition.ImportReference(typeof(string).GetMethod("Intern", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static));
 
-            _lookupMethod = new MethodDefinition($"CryptGet_{_Id}", MethodAttributes.HideBySig | MethodAttributes.Static, ModuleDefinition.ImportReference(typeof(string)));
-            _lookupMethod.Parameters.Add(new ParameterDefinition("ndx", ParameterAttributes.None, ModuleDefinition.ImportReference(typeof(int))));
-            _lookupMethod.Parameters.Add(new ParameterDefinition("len", ParameterAttributes.None, ModuleDefinition.ImportReference(typeof(int))));
-            _lookupMethod.Parameters.Add(new ParameterDefinition("i", ParameterAttributes.None, ModuleDefinition.ImportReference(typeof(int))));
-            AddAttrs(_lookupMethod.CustomAttributes);
-            _lookupMethod.DeclaringType = moduleType;
-            _lookupMethod.Body = new MethodBody(_lookupMethod);
-            var il = _lookupMethod.Body.GetILProcessor();
+            _cryptGetMethod = new MethodDefinition($"CryptGet_{_Id}", MethodAttributes.HideBySig | MethodAttributes.Static, ModuleDefinition.ImportReference(typeof(string)));
+            _cryptGetMethod.Parameters.Add(new ParameterDefinition("ndx", ParameterAttributes.None, ModuleDefinition.ImportReference(typeof(int))));
+            _cryptGetMethod.Parameters.Add(new ParameterDefinition("len", ParameterAttributes.None, ModuleDefinition.ImportReference(typeof(int))));
+            _cryptGetMethod.Parameters.Add(new ParameterDefinition("i", ParameterAttributes.None, ModuleDefinition.ImportReference(typeof(int))));
+            AddAttrs(_cryptGetMethod.CustomAttributes);
+            _cryptGetMethod.DeclaringType = moduleType;
+            _cryptGetMethod.Body = new MethodBody(_cryptGetMethod);
+            var il = _cryptGetMethod.Body.GetILProcessor();
 
-            VariableDefinition outVar = _lookupMethod.AddLocal(typeof(string));
+            VariableDefinition outVar = _cryptGetMethod.AddLocal(typeof(string));
 
             var loadReturnVal = il.Create(OpCodes.Ldloc_0);
 
@@ -229,21 +229,21 @@ namespace CryptStr2
             il.Append(loadReturnVal);
             il.Append(il.Create(OpCodes.Ret));
 
-            moduleType.Methods.Add(_lookupMethod);
+            moduleType.Methods.Add(_cryptGetMethod);
         }
 
         private void Finish_CryptInit(TypeDefinition moduleType, byte[] cipherBytes, int byteCount)
         {
-            var il = _decryptMethod.Body.GetILProcessor();
+            var il = _cryptInitMethod.Body.GetILProcessor();
 
-            _decryptMethod.Body.InitLocals = true;
+            _cryptInitMethod.Body.InitLocals = true;
 
-            VariableDefinition memStream = _decryptMethod.AddLocal(typeof(Stream));
-            VariableDefinition keyBytes = _decryptMethod.AddLocal(typeof(byte[]));
-            VariableDefinition aesProvider = _decryptMethod.AddLocal(typeof(AesCryptoServiceProvider));
-            VariableDefinition cryptoTransform = _decryptMethod.AddLocal(typeof(ICryptoTransform));
-            VariableDefinition cryptoStream = _decryptMethod.AddLocal(typeof(CryptoStream));
-            VariableDefinition retBytes = _decryptMethod.AddLocal(typeof(byte[]));
+            VariableDefinition memStream = _cryptInitMethod.AddLocal(typeof(Stream));
+            VariableDefinition keyBytes = _cryptInitMethod.AddLocal(typeof(byte[]));
+            VariableDefinition aesProvider = _cryptInitMethod.AddLocal(typeof(AesCryptoServiceProvider));
+            VariableDefinition cryptoTransform = _cryptInitMethod.AddLocal(typeof(ICryptoTransform));
+            VariableDefinition cryptoStream = _cryptInitMethod.AddLocal(typeof(CryptoStream));
+            VariableDefinition retBytes = _cryptInitMethod.AddLocal(typeof(byte[]));
 
             var resourceName = $"data-{this._Id}";
             var new_bytes = new byte[_key.Length + cipherBytes.Length];
@@ -318,13 +318,26 @@ namespace CryptStr2
             il.Append(il.Create(OpCodes.Ret));
         }
 
-        private void ProcessMethod((MethodBody Body, List<Instruction> Ldstrs) tuple)
+        private class Model
         {
-            tuple.Body.SimplifyMacros();
+            public Model(MethodBody body, List<Instruction> ldstrs)
+            {
+                this.Body = body;
+                this.Ldstrs = ldstrs;
+            }
 
-            var il = tuple.Body.GetILProcessor();
+            public MethodBody Body { get; }
 
-            foreach (Instruction instruction in tuple.Ldstrs)
+            public List<Instruction> Ldstrs { get; }
+        }
+
+        private void ProcessMethod(Model model)
+        {
+            model.Body.SimplifyMacros();
+
+            var il = model.Body.GetILProcessor();
+
+            foreach (Instruction instruction in model.Ldstrs)
             {
                 string originalValue = instruction.Operand.ToString();
                 byte[] bytes = Encoding.UTF8.GetBytes(originalValue);
@@ -340,18 +353,18 @@ namespace CryptStr2
                 Instruction loadIndex = il.Create(OpCodes.Ldc_I4, _strIndex);
                 il.InsertAfter(loadByteLen, loadIndex);
 
-                Instruction call = il.Create(OpCodes.Call, _lookupMethod);
+                Instruction call = il.Create(OpCodes.Call, _cryptGetMethod);
                 il.InsertAfter(loadIndex, call);
 
                 _strIndex++;
             }
 
-            tuple.Body.OptimizeMacros();
+            model.Body.OptimizeMacros();
         }
 
-        private List<(MethodBody Body, List<Instruction> Ldstrs)> FindAllStrings()
+        private List<Model> FindAllStrings()
         {
-            var list = new List<(MethodBody Body, List<Instruction> Ldstrs)>();
+            var list = new List<Model>();
 
             foreach (ModuleDefinition moduleDefinition in ModuleDefinition.Assembly.Modules)
             {
@@ -365,7 +378,7 @@ namespace CryptStr2
 
                             if (ldstrs.Count > 0)
                             {
-                                list.Add((methodDefinition.Body, ldstrs));
+                                list.Add(new Model(methodDefinition.Body, ldstrs));
                             }
                         }
                     }
