@@ -9,7 +9,7 @@ using Mono.Collections.Generic;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
 using MethodBody = Mono.Cecil.Cil.MethodBody;
 
-namespace CryptStr2
+namespace CryptStr2.Utils
 {
     public static class CecilExtensions
     {
