@@ -24,6 +24,7 @@ namespace CryptStr2
 
         private int _minLen = 1;
         private int _maxLen = 1000000;
+        private bool _isRemoveDuplicate = true;
 
         private string _id = Math.Abs(Guid.NewGuid().GetHashCode()).ToString();
 
@@ -41,12 +42,23 @@ namespace CryptStr2
             {
                 var minattr = Config.Attribute("MinLen");
                 var maxattr = Config.Attribute("MaxLen");
+                var isRemoveDuplicate = Config.Attribute("IsRemoveDuplicate");
 
                 if (minattr != null) int.TryParse(minattr.Value, out _minLen);
                 if (maxattr != null) int.TryParse(maxattr.Value, out _maxLen);
+                if (isRemoveDuplicate != null) bool.TryParse(isRemoveDuplicate.Value, out _isRemoveDuplicate);
             }
 
-            var model = GetModel();
+            Model model;
+
+            if (_isRemoveDuplicate)
+            {
+                model = Get_ModelNotRepeat();
+            }
+            else
+            {
+                model = Get_ModelAll();
+            }
 
             var moduleType = ModuleDefinition.GetAllTypes().First(td => td.Name == "<Module>");
 
@@ -58,9 +70,19 @@ namespace CryptStr2
 
             Create_Cctor(moduleType, model.Infos.Count);
 
-            foreach (var body in model.Bodys)
+            if (_isRemoveDuplicate)
             {
-                ProcessMethod(body, str => model.Infos.Find(info => info.Str == str));
+                foreach (var body in model.Bodys)
+                {
+                    ProcessMethod(body, str => model.Infos.Find(info => info.Str == str));
+                }
+            }
+            else
+            {
+                foreach (var body in model.Bodys)
+                {
+                    ProcessMethod(body);
+                }
             }
 
             var cipherBytes = EncryptBytes(model.AllBytes.ToArray(), out var key);
@@ -73,15 +95,50 @@ namespace CryptStr2
             return Enumerable.Empty<string>();
         }
 
-        private Model GetModel()
+        private Model Get_ModelAll()
+        {
+            var index = 0;
+            var bodys = FindAllStrings();
+            var all_bytes = new List<byte>(10000);
+            var list_Infos = new List<Info>();
+
+            for (var i = 0; i < bodys.Count; i++)
+            {
+                var body = bodys[i];
+
+                for (var j = 0; j < body.Ldstrs.Count; j++)
+                {
+                    var ldstr = body.Ldstrs[j];
+                    var str = ldstr.Instruction.Operand.ToString();
+                    var bytes = Encoding.UTF8.GetBytes(str);
+
+                    ldstr.Info = new Info()
+                    {
+                        Str = str,
+                        StartIndex = all_bytes.Count,
+                        Length = bytes.Length,
+                        Index = index
+                    };
+
+                    list_Infos.Add(ldstr.Info);
+
+                    all_bytes.AddRange(bytes);
+
+                    index++;
+                }
+            }
+
+            return new Model(bodys, all_bytes, list_Infos);
+        }
+
+        private Model Get_ModelNotRepeat()
         {
             var bodys = FindAllStrings();
-
             var all_bytes = new List<byte>(10000);
             var list_Infos = new List<Info>();
 
             var strs = bodys
-                .SelectMany(m => m.Ldstrs.Select(ins => ins.Operand.ToString()))
+                .SelectMany(m => m.Ldstrs.Select(ins => ins.Instruction.Operand.ToString()))
                 .Distinct()
                 .ToArray();
 
@@ -104,16 +161,17 @@ namespace CryptStr2
             return new Model(bodys, all_bytes, list_Infos);
         }
 
-        private void ProcessMethod(BodyInfo model, Func<string, Info> getInfo)
+        private void ProcessMethod(BodyInfo model, Func<string, Info> getInfo = null)
         {
             model.Body.SimplifyMacros();
 
             var il = model.Body.GetILProcessor();
 
-            foreach (Instruction instruction in model.Ldstrs)
+            foreach (var instInfo in model.Ldstrs)
             {
+                var instruction = instInfo.Instruction;
                 var originalValue = instruction.Operand.ToString();
-                var info = getInfo.Invoke(originalValue);
+                var info = getInfo == null ? instInfo.Info : getInfo.Invoke(originalValue);
 
                 instruction.OpCode = OpCodes.Ldc_I4;
                 instruction.Operand = info.StartIndex;
@@ -377,11 +435,11 @@ namespace CryptStr2
         {
             var list = new List<BodyInfo>();
 
-            foreach (ModuleDefinition moduleDefinition in ModuleDefinition.Assembly.Modules)
+            foreach (var moduleDefinition in ModuleDefinition.Assembly.Modules)
             {
-                foreach (TypeDefinition typeDefinition in moduleDefinition.GetAllTypes())
+                foreach (var typeDefinition in moduleDefinition.GetAllTypes())
                 {
-                    foreach (MethodDefinition methodDefinition in typeDefinition.Methods)
+                    foreach (var methodDefinition in typeDefinition.Methods)
                     {
                         if (methodDefinition.HasBody)
                         {
@@ -398,9 +456,9 @@ namespace CryptStr2
 
             return list;
 
-            IEnumerable<Instruction> FindStrings(MethodBody body)
+            IEnumerable<InstInfo> FindStrings(MethodBody body)
             {
-                foreach (Instruction instruction in body.Instructions)
+                foreach (var instruction in body.Instructions)
                 {
                     switch (instruction.OpCode.Name)
                     {
@@ -409,7 +467,7 @@ namespace CryptStr2
                             {
                                 if (str.Length >= _minLen && str.Length <= _maxLen)
                                 {
-                                    yield return instruction;
+                                    yield return new InstInfo(instruction);
                                 }
                             }
                             break;
@@ -436,7 +494,7 @@ namespace CryptStr2
 
         private class BodyInfo
         {
-            public BodyInfo(MethodBody body, List<Instruction> ldstrs)
+            public BodyInfo(MethodBody body, List<InstInfo> ldstrs)
             {
                 this.Body = body;
                 this.Ldstrs = ldstrs;
@@ -444,7 +502,20 @@ namespace CryptStr2
 
             public MethodBody Body { get; }
 
-            public List<Instruction> Ldstrs { get; }
+            public List<InstInfo> Ldstrs { get; }
+        }
+
+        private sealed class InstInfo
+        {
+            public InstInfo(Instruction instruction)
+            {
+                this.Instruction = instruction;
+                this.Info = default;
+            }
+
+            public Instruction Instruction { get; }
+
+            public Info Info { get; set; }
         }
 
         private struct Info
