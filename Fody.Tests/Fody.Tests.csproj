@@ -6,7 +6,7 @@
 		<Company />
 		<OutputType>Exe</OutputType>
 		<PackageProjectUrl>https://github.com/chen19890425/CryptStr2.Fody</PackageProjectUrl>
-		<Version>1.0.9</Version>
+		<Version>1.0.10</Version>
 	</PropertyGroup>
 
 	<ItemGroup>
