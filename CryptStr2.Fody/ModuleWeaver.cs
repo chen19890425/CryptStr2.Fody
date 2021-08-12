@@ -197,10 +197,10 @@ namespace CryptStr2
 
             key = keyGenerator.GetBytes(16);
 
-            using (AesCryptoServiceProvider aesProvider = new AesCryptoServiceProvider() { Padding = PaddingMode.None })
-            using (ICryptoTransform cryptoTransform = aesProvider.CreateEncryptor(key, key))
-            using (MemoryStream memStream = new MemoryStream())
-            using (CryptoStream cryptoStream = new CryptoStream(memStream, cryptoTransform, CryptoStreamMode.Write))
+            using (var aesProvider = new AesCryptoServiceProvider() { Padding = PaddingMode.None })
+            using (var cryptoTransform = aesProvider.CreateEncryptor(key, key))
+            using (var memStream = new MemoryStream())
+            using (var cryptoStream = new CryptoStream(memStream, cryptoTransform, CryptoStreamMode.Write))
             {
                 cryptoStream.Write(plainText.ToArray(), 0, plainText.Length);
 
@@ -233,17 +233,19 @@ namespace CryptStr2
 
         private void Define_Fields(TypeDefinition moduleType)
         {
-            _decryptedField = new FieldDefinition($"CryptBytes_{_id}"
-                , FieldAttributes.Private | FieldAttributes.Static
-                , ModuleDefinition.ImportReference(typeof(Lazy<byte[]>)));
+            _decryptedField = new FieldDefinition(
+                $"CryptBytes_{_id}",
+                FieldAttributes.Private | FieldAttributes.Static,
+                ModuleDefinition.ImportReference(typeof(Lazy<byte[]>)));
 
             AddAttrs(_decryptedField.CustomAttributes);
 
             moduleType.Fields.Add(_decryptedField);
 
-            _stringsArrayField = new FieldDefinition($"Strings_{_id}"
-                , FieldAttributes.Private | FieldAttributes.Static
-                , ModuleDefinition.ImportReference(typeof(string[])));
+            _stringsArrayField = new FieldDefinition(
+                $"Strings_{_id}",
+                FieldAttributes.Private | FieldAttributes.Static,
+                ModuleDefinition.ImportReference(typeof(string[])));
 
             AddAttrs(_stringsArrayField.CustomAttributes);
 
@@ -253,15 +255,18 @@ namespace CryptStr2
         private void Create_CryptInit(TypeDefinition moduleType)
         {
             _cryptInitMethod = new MethodDefinition($"CryptInit_{_id}", MethodAttributes.HideBySig | MethodAttributes.Static | MethodAttributes.CompilerControlled, ModuleDefinition.ImportReference(typeof(byte[])));
+
             AddAttrs(_cryptInitMethod.CustomAttributes);
+
             _cryptInitMethod.Body = new MethodBody(_cryptInitMethod);
+
             moduleType.Methods.Add(_cryptInitMethod);
         }
 
         private void Create_Cctor(TypeDefinition moduleType, int ldstrLength)
         {
-            MethodDefinition cctor = FindOrCreateCctor(moduleType);
-            MethodBody body = cctor.Body;
+            var cctor = FindOrCreateCctor(moduleType);
+            var body = cctor.Body;
 
             body.SimplifyMacros();
             List<Instruction> returnPoints = body.Instructions.Where((Instruction x) => x.OpCode == OpCodes.Ret).ToList();
@@ -285,14 +290,19 @@ namespace CryptStr2
 
             MethodDefinition FindOrCreateCctor(TypeDefinition moduleClass)
             {
-                MethodDefinition _cctor = moduleClass.Methods.FirstOrDefault((MethodDefinition x) => x.Name == ".cctor");
+                var _cctor = moduleClass.Methods.FirstOrDefault((MethodDefinition x) => x.Name == ".cctor");
+
                 if (_cctor == null)
                 {
-                    MethodAttributes attributes = MethodAttributes.Private | MethodAttributes.Static | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName;
+                    var attributes = MethodAttributes.Private | MethodAttributes.Static | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName;
+                    
                     _cctor = new MethodDefinition(".cctor", attributes, TypeSystem.VoidReference);
+
                     moduleClass.Methods.Add(_cctor);
+
                     _cctor.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
                 }
+
                 return _cctor;
             }
         }
@@ -308,17 +318,25 @@ namespace CryptStr2
             _cryptGetMethod.Parameters.Add(new ParameterDefinition("ndx", ParameterAttributes.None, ModuleDefinition.ImportReference(typeof(int))));
             _cryptGetMethod.Parameters.Add(new ParameterDefinition("len", ParameterAttributes.None, ModuleDefinition.ImportReference(typeof(int))));
             _cryptGetMethod.Parameters.Add(new ParameterDefinition("i", ParameterAttributes.None, ModuleDefinition.ImportReference(typeof(int))));
+
             AddAttrs(_cryptGetMethod.CustomAttributes);
+
             _cryptGetMethod.DeclaringType = moduleType;
+
             _cryptGetMethod.Body = new MethodBody(_cryptGetMethod);
+
             var il = _cryptGetMethod.Body.GetILProcessor();
 
-            VariableDefinition outVar = _cryptGetMethod.AddLocal(typeof(string));
+            _cryptGetMethod.Body.SimplifyMacros();
+
+            _cryptGetMethod.Body.InitLocals = true;
+
+            _cryptGetMethod.AddLocal(typeof(string));
 
             var loadReturnVal = il.Create(OpCodes.Ldloc_0);
 
             il.Append(il.Create(OpCodes.Ldsfld, _stringsArrayField));
-            il.Append(il.Create(OpCodes.Ldarg, 2));
+            il.Append(il.Create(OpCodes.Ldarg_2));
             il.Append(il.Create(OpCodes.Ldelem_Ref));
             il.Append(il.Create(OpCodes.Stloc_0));
 
@@ -335,7 +353,7 @@ namespace CryptStr2
             il.Append(il.Create(OpCodes.Stloc_0));
 
             il.Append(il.Create(OpCodes.Ldsfld, _stringsArrayField));
-            il.Append(il.Create(OpCodes.Ldarg, 2));
+            il.Append(il.Create(OpCodes.Ldarg_2));
             il.Append(il.Create(OpCodes.Ldloc_0));
             il.Append(il.Create(OpCodes.Stelem_Ref));
 
@@ -343,20 +361,24 @@ namespace CryptStr2
             il.Append(il.Create(OpCodes.Ret));
 
             moduleType.Methods.Add(_cryptGetMethod);
+
+            _cryptGetMethod.Body.OptimizeMacros();
         }
 
         private void Finish_CryptInit(TypeDefinition moduleType, byte[] key, byte[] cipherBytes, int byteCount)
         {
             var il = _cryptInitMethod.Body.GetILProcessor();
 
+            _cryptInitMethod.Body.SimplifyMacros();
+
             _cryptInitMethod.Body.InitLocals = true;
 
-            VariableDefinition memStream = _cryptInitMethod.AddLocal(typeof(Stream));
-            VariableDefinition keyBytes = _cryptInitMethod.AddLocal(typeof(byte[]));
-            VariableDefinition aesProvider = _cryptInitMethod.AddLocal(typeof(AesCryptoServiceProvider));
-            VariableDefinition cryptoTransform = _cryptInitMethod.AddLocal(typeof(ICryptoTransform));
-            VariableDefinition cryptoStream = _cryptInitMethod.AddLocal(typeof(CryptoStream));
-            VariableDefinition retBytes = _cryptInitMethod.AddLocal(typeof(byte[]));
+            var memStream = _cryptInitMethod.AddLocal(typeof(Stream));
+            var keyBytes = _cryptInitMethod.AddLocal(typeof(byte[]));
+            var aesProvider = _cryptInitMethod.AddLocal(typeof(AesCryptoServiceProvider));
+            var cryptoTransform = _cryptInitMethod.AddLocal(typeof(ICryptoTransform));
+            var cryptoStream = _cryptInitMethod.AddLocal(typeof(CryptoStream));
+            var retBytes = _cryptInitMethod.AddLocal(typeof(byte[]));
 
             var resourceName = $"data-{this._id}";
             var new_bytes = new byte[key.Length + cipherBytes.Length];
@@ -429,6 +451,8 @@ namespace CryptStr2
             il.Append(il.Create(OpCodes.Callvirt, disposeStream));
             il.Append(il.Create(OpCodes.Ldloc_S, retBytes));
             il.Append(il.Create(OpCodes.Ret));
+
+            _cryptInitMethod.Body.OptimizeMacros();
         }
 
         private List<BodyInfo> FindAllStrings()

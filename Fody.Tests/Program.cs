@@ -12,7 +12,7 @@ namespace Fody.Tests
                 new ModuleWeaver(),
                 Path.Combine(AppContext.BaseDirectory, "dlls", "Clock.exe"),
                 runPeVerify: false,
-                writeSymbols: true);
+                writeSymbols: false);
 
             Console.WriteLine("Press any key to exit .");
             Console.ReadKey();
