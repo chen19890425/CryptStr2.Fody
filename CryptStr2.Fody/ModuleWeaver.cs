@@ -408,16 +408,16 @@ namespace CryptStr2
 
             _cryptInitMethod.Body.InitLocals = true;
 
-            if (key == null)
+            var new_bytes = dataBytes;
+
+            if (_isEncrypt)
             {
-                key = Array.Empty<byte>();
+                new_bytes = new byte[key.Length + dataBytes.Length];
+
+                Array.Copy(key, new_bytes, key.Length);
+
+                Array.Copy(dataBytes, 0, new_bytes, key.Length, dataBytes.Length);
             }
-
-            var new_bytes = new byte[key.Length + dataBytes.Length];
-
-            Array.Copy(key, new_bytes, key.Length);
-
-            Array.Copy(dataBytes, 0, new_bytes, key.Length, dataBytes.Length);
 
             EmbeddedResource resource = new EmbeddedResource(resourceName, ManifestResourceAttributes.Private, new_bytes);
 
@@ -439,7 +439,7 @@ namespace CryptStr2
                 il.Append(il.Create(OpCodes.Stloc_1));
                 il.Append(il.Create(OpCodes.Ldloc_0));
                 il.Append(il.Create(OpCodes.Ldloc_1));
-                il.Append(il.Create(OpCodes.Ldc_I4, key.Length));
+                il.Append(il.Create(OpCodes.Ldc_I4_0));
                 il.Append(il.Create(OpCodes.Ldc_I4, byteCount));
                 il.Append(il.Create(OpCodes.Callvirt, readStream));
                 il.Append(il.Create(OpCodes.Pop));
