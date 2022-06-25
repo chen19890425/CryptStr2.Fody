@@ -12,6 +12,7 @@ using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using Mono.Collections.Generic;
+using SRE = System.Reflection.Emit;
 
 namespace CryptStr2
 {
@@ -25,7 +26,7 @@ namespace CryptStr2
         private int _minLen = 1;
         private int _maxLen = 1000000;
         private bool _isEncrypt = true;
-        private bool _isRemoveDuplicate = true;
+        private bool _isRemoveDuplicate = false;
 
         private string _id = Math.Abs(Guid.NewGuid().GetHashCode()).ToString();
 
@@ -392,17 +393,17 @@ namespace CryptStr2
 
         private void Finish_CryptInit(TypeDefinition moduleType, byte[] key, byte[] dataBytes, int byteCount)
         {
-            var il = _cryptInitMethod.Body.GetILProcessor();
+            var il = new MonoMod.Utils.Cil.CecilILGenerator(_cryptInitMethod.Body.GetILProcessor());
 
             var resourceName = $"data-{this._id}";
 
-            var disposeStream = ModuleDefinition.ImportReference(typeof(Stream).GetMethod("Dispose", Type.EmptyTypes));
-            var readStream = ModuleDefinition.ImportReference(typeof(Stream).GetMethod("Read", new Type[] { typeof(byte[]), typeof(int), typeof(int) }));
-            var getTypeFromHandle = ModuleDefinition.ImportReference(typeof(Type).GetMethod("GetTypeFromHandle", new Type[] { typeof(RuntimeTypeHandle) }));
-            var get_Assembly = ModuleDefinition.ImportReference(typeof(Type).GetProperty("Assembly").GetGetMethod());
-            var getManifestResourceStream = ModuleDefinition.ImportReference(typeof(System.Reflection.Assembly).GetMethod("GetManifestResourceStream", new[] { typeof(string) }));
+            var dispose = typeof(IDisposable).GetMethod("Dispose", Type.EmptyTypes);
+            var readStream = typeof(Stream).GetMethod("Read", new Type[] { typeof(byte[]), typeof(int), typeof(int) });
+            var getTypeFromHandle = typeof(Type).GetMethod("GetTypeFromHandle", new Type[] { typeof(RuntimeTypeHandle) });
+            var get_Assembly = typeof(Type).GetProperty("Assembly").GetGetMethod();
+            var getManifestResourceStream = typeof(System.Reflection.Assembly).GetMethod("GetManifestResourceStream", new[] { typeof(string) });
 
-            var memStream = _cryptInitMethod.AddLocal(typeof(Stream));
+            var memStream = il.DeclareLocal(typeof(Stream));
 
             _cryptInitMethod.Body.SimplifyMacros();
 
@@ -423,89 +424,122 @@ namespace CryptStr2
 
             this.ModuleDefinition.Resources.Add(resource);
 
-            il.Append(il.Create(OpCodes.Ldtoken, moduleType));
-            il.Append(il.Create(OpCodes.Call, getTypeFromHandle));
-            il.Append(il.Create(OpCodes.Callvirt, get_Assembly));
-            il.Append(il.Create(OpCodes.Ldstr, resourceName));
-            il.Append(il.Create(OpCodes.Callvirt, getManifestResourceStream));
-            il.Append(il.Create(OpCodes.Stloc_0));
+            var lb_dispose_Stream = il.DefineLabel();
+            var lb_dispose_AesCryptoServiceProvider = il.DefineLabel();
+            var lb_dispose_ICryptoTransform = il.DefineLabel();
+            var lb_dispose_CryptoStream = il.DefineLabel();
+
+            il.IL.Append(il.IL.Create(OpCodes.Ldtoken, moduleType));
+            il.Emit(SRE.OpCodes.Call, getTypeFromHandle);
+            il.Emit(SRE.OpCodes.Callvirt, get_Assembly);
+            il.Emit(SRE.OpCodes.Ldstr, resourceName);
+            il.Emit(SRE.OpCodes.Callvirt, getManifestResourceStream);
+            il.Emit(SRE.OpCodes.Stloc_0);
 
             if (!_isEncrypt)
             {
-                var retBytes = _cryptInitMethod.AddLocal(typeof(byte[]));
+                var retBytes = il.DeclareLocal(typeof(byte[]));
 
-                il.Append(il.Create(OpCodes.Ldc_I4, byteCount));
-                il.Append(il.Create(OpCodes.Newarr, ModuleDefinition.ImportReference(typeof(byte))));
-                il.Append(il.Create(OpCodes.Stloc_1));
-                il.Append(il.Create(OpCodes.Ldloc_0));
-                il.Append(il.Create(OpCodes.Ldloc_1));
-                il.Append(il.Create(OpCodes.Ldc_I4_0));
-                il.Append(il.Create(OpCodes.Ldc_I4, byteCount));
-                il.Append(il.Create(OpCodes.Callvirt, readStream));
-                il.Append(il.Create(OpCodes.Pop));
-                il.Append(il.Create(OpCodes.Ldloc_0));
-                il.Append(il.Create(OpCodes.Callvirt, disposeStream));
-                il.Append(il.Create(OpCodes.Ldloc_1));
-                il.Append(il.Create(OpCodes.Ret));
+                il.BeginExceptionBlock();
+                il.Emit(SRE.OpCodes.Ldc_I4, byteCount);
+                il.Emit(SRE.OpCodes.Newarr, typeof(byte));
+                il.Emit(SRE.OpCodes.Stloc_1);
+                il.Emit(SRE.OpCodes.Ldloc_0);
+                il.Emit(SRE.OpCodes.Ldloc_1);
+                il.Emit(SRE.OpCodes.Ldc_I4_0);
+                il.Emit(SRE.OpCodes.Ldc_I4, byteCount);
+                il.Emit(SRE.OpCodes.Callvirt, readStream);
+                il.Emit(SRE.OpCodes.Pop);
+                il.BeginFinallyBlock();
+                il.Emit(SRE.OpCodes.Ldloc_0);
+                il.Emit(SRE.OpCodes.Brfalse_S, lb_dispose_Stream);
+                il.Emit(SRE.OpCodes.Ldloc_0);
+                il.Emit(SRE.OpCodes.Callvirt, dispose);
+                il.MarkLabel(lb_dispose_Stream);
+                il.EndExceptionBlock();
+                il.Emit(SRE.OpCodes.Ldloc_1);
+                il.Emit(SRE.OpCodes.Ret);
             }
             else
             {
-                var aesCtor = ModuleDefinition.ImportReference(typeof(AesCryptoServiceProvider).GetConstructor(Type.EmptyTypes));
-                var setPadding = ModuleDefinition.ImportReference(typeof(SymmetricAlgorithm).GetMethod("set_Padding", new Type[] { typeof(PaddingMode) }));
-                var createDecryptor = ModuleDefinition.ImportReference(typeof(SymmetricAlgorithm).GetMethod("CreateDecryptor", new Type[] { typeof(byte[]), typeof(byte[]) }));
-                var cryptoStreamCtor = ModuleDefinition.ImportReference(typeof(CryptoStream).GetConstructor(new Type[] { typeof(Stream), typeof(ICryptoTransform), typeof(CryptoStreamMode) }));
-                var dispose = ModuleDefinition.ImportReference(typeof(IDisposable).GetMethod("Dispose", Type.EmptyTypes));
-                var disposeSymmetric = ModuleDefinition.ImportReference(typeof(SymmetricAlgorithm).GetMethod("Dispose", Type.EmptyTypes));
+                var aesCtor = typeof(AesCryptoServiceProvider).GetConstructor(Type.EmptyTypes);
+                var setPadding = typeof(SymmetricAlgorithm).GetMethod("set_Padding", new Type[] { typeof(PaddingMode) });
+                var createDecryptor = typeof(SymmetricAlgorithm).GetMethod("CreateDecryptor", new Type[] { typeof(byte[]), typeof(byte[]) });
+                var cryptoStreamCtor = typeof(CryptoStream).GetConstructor(new Type[] { typeof(Stream), typeof(ICryptoTransform), typeof(CryptoStreamMode) });
 
-                var keyBytes = _cryptInitMethod.AddLocal(typeof(byte[]));
-                var aesProvider = _cryptInitMethod.AddLocal(typeof(AesCryptoServiceProvider));
-                var cryptoTransform = _cryptInitMethod.AddLocal(typeof(ICryptoTransform));
-                var cryptoStream = _cryptInitMethod.AddLocal(typeof(CryptoStream));
-                var retBytes = _cryptInitMethod.AddLocal(typeof(byte[]));
+                var keyBytes = il.DeclareLocal(typeof(byte[]));
+                var aesProvider = il.DeclareLocal(typeof(AesCryptoServiceProvider));
+                var cryptoTransform = il.DeclareLocal(typeof(ICryptoTransform));
+                var cryptoStream = il.DeclareLocal(typeof(CryptoStream));
+                var retBytes = il.DeclareLocal(typeof(byte[]));
 
-                il.Append(il.Create(OpCodes.Ldc_I4, key.Length));
-                il.Append(il.Create(OpCodes.Newarr, ModuleDefinition.ImportReference(typeof(byte))));
-                il.Append(il.Create(OpCodes.Stloc_1));
-                il.Append(il.Create(OpCodes.Ldloc_0));
-                il.Append(il.Create(OpCodes.Ldloc_1));
-                il.Append(il.Create(OpCodes.Ldc_I4_0));
-                il.Append(il.Create(OpCodes.Ldc_I4, key.Length));
-                il.Append(il.Create(OpCodes.Callvirt, readStream));
-                il.Append(il.Create(OpCodes.Pop));
-                il.Append(il.Create(OpCodes.Newobj, aesCtor));
-                il.Append(il.Create(OpCodes.Stloc_2));
-                il.Append(il.Create(OpCodes.Ldloc_2));
-                il.Append(il.Create(OpCodes.Ldc_I4_1));
-                il.Append(il.Create(OpCodes.Callvirt, setPadding));
-                il.Append(il.Create(OpCodes.Ldloc_2));
-                il.Append(il.Create(OpCodes.Ldloc_1));
-                il.Append(il.Create(OpCodes.Ldloc_1));
-                il.Append(il.Create(OpCodes.Callvirt, createDecryptor));
-                il.Append(il.Create(OpCodes.Stloc_3));
-                il.Append(il.Create(OpCodes.Ldloc_0));
-                il.Append(il.Create(OpCodes.Ldloc_3));
-                il.Append(il.Create(OpCodes.Ldc_I4_0));
-                il.Append(il.Create(OpCodes.Newobj, cryptoStreamCtor));
-                il.Append(il.Create(OpCodes.Stloc_S, cryptoStream));
-                il.Append(il.Create(OpCodes.Ldc_I4, byteCount));
-                il.Append(il.Create(OpCodes.Newarr, ModuleDefinition.ImportReference(typeof(byte))));
-                il.Append(il.Create(OpCodes.Stloc_S, retBytes));
-                il.Append(il.Create(OpCodes.Ldloc_S, cryptoStream));
-                il.Append(il.Create(OpCodes.Ldloc_S, retBytes));
-                il.Append(il.Create(OpCodes.Ldc_I4_0));
-                il.Append(il.Create(OpCodes.Ldc_I4, byteCount));
-                il.Append(il.Create(OpCodes.Callvirt, readStream));
-                il.Append(il.Create(OpCodes.Pop));
-                il.Append(il.Create(OpCodes.Ldloc_S, cryptoStream));
-                il.Append(il.Create(OpCodes.Callvirt, disposeStream));
-                il.Append(il.Create(OpCodes.Ldloc_3));
-                il.Append(il.Create(OpCodes.Callvirt, dispose));
-                il.Append(il.Create(OpCodes.Ldloc_2));
-                il.Append(il.Create(OpCodes.Callvirt, disposeSymmetric));
-                il.Append(il.Create(OpCodes.Ldloc_0));
-                il.Append(il.Create(OpCodes.Callvirt, disposeStream));
-                il.Append(il.Create(OpCodes.Ldloc_S, retBytes));
-                il.Append(il.Create(OpCodes.Ret));
+                il.BeginExceptionBlock();
+                il.Emit(SRE.OpCodes.Ldc_I4, key.Length);
+                il.Emit(SRE.OpCodes.Newarr, typeof(byte));
+                il.Emit(SRE.OpCodes.Stloc_1);
+                il.Emit(SRE.OpCodes.Ldloc_0);
+                il.Emit(SRE.OpCodes.Ldloc_1);
+                il.Emit(SRE.OpCodes.Ldc_I4_0);
+                il.Emit(SRE.OpCodes.Ldc_I4, key.Length);
+                il.Emit(SRE.OpCodes.Callvirt, readStream);
+                il.Emit(SRE.OpCodes.Pop);
+                il.Emit(SRE.OpCodes.Newobj, aesCtor);
+                il.Emit(SRE.OpCodes.Stloc_2);
+                il.BeginExceptionBlock();
+                il.Emit(SRE.OpCodes.Ldloc_2);
+                il.Emit(SRE.OpCodes.Ldc_I4_1);
+                il.Emit(SRE.OpCodes.Callvirt, setPadding);
+                il.Emit(SRE.OpCodes.Ldloc_2);
+                il.Emit(SRE.OpCodes.Ldloc_1);
+                il.Emit(SRE.OpCodes.Ldloc_1);
+                il.Emit(SRE.OpCodes.Callvirt, createDecryptor);
+                il.Emit(SRE.OpCodes.Stloc_3);
+                il.BeginExceptionBlock();
+                il.Emit(SRE.OpCodes.Ldloc_0);
+                il.Emit(SRE.OpCodes.Ldloc_3);
+                il.Emit(SRE.OpCodes.Ldc_I4_0);
+                il.Emit(SRE.OpCodes.Newobj, cryptoStreamCtor);
+                il.Emit(SRE.OpCodes.Stloc_S, cryptoStream);
+                il.BeginExceptionBlock();
+                il.Emit(SRE.OpCodes.Ldc_I4, byteCount);
+                il.Emit(SRE.OpCodes.Newarr, typeof(byte));
+                il.Emit(SRE.OpCodes.Stloc_S, retBytes);
+                il.Emit(SRE.OpCodes.Ldloc_S, cryptoStream);
+                il.Emit(SRE.OpCodes.Ldloc_S, retBytes);
+                il.Emit(SRE.OpCodes.Ldc_I4_0);
+                il.Emit(SRE.OpCodes.Ldc_I4, byteCount);
+                il.Emit(SRE.OpCodes.Callvirt, readStream);
+                il.Emit(SRE.OpCodes.Pop);
+                il.BeginFinallyBlock();
+                il.Emit(SRE.OpCodes.Ldloc_S, cryptoStream);
+                il.Emit(SRE.OpCodes.Brfalse_S, lb_dispose_CryptoStream);
+                il.Emit(SRE.OpCodes.Ldloc_S, cryptoStream);
+                il.Emit(SRE.OpCodes.Callvirt, dispose);
+                il.MarkLabel(lb_dispose_CryptoStream);
+                il.EndExceptionBlock();
+                il.BeginFinallyBlock();
+                il.Emit(SRE.OpCodes.Ldloc_3);
+                il.Emit(SRE.OpCodes.Brfalse_S, lb_dispose_ICryptoTransform);
+                il.Emit(SRE.OpCodes.Ldloc_3);
+                il.Emit(SRE.OpCodes.Callvirt, dispose);
+                il.MarkLabel(lb_dispose_ICryptoTransform);
+                il.EndExceptionBlock();
+                il.BeginFinallyBlock();
+                il.Emit(SRE.OpCodes.Ldloc_2);
+                il.Emit(SRE.OpCodes.Brfalse_S, lb_dispose_AesCryptoServiceProvider);
+                il.Emit(SRE.OpCodes.Ldloc_2);
+                il.Emit(SRE.OpCodes.Callvirt, dispose);
+                il.MarkLabel(lb_dispose_AesCryptoServiceProvider);
+                il.EndExceptionBlock();
+                il.BeginFinallyBlock();
+                il.Emit(SRE.OpCodes.Ldloc_0);
+                il.Emit(SRE.OpCodes.Brfalse_S, lb_dispose_Stream);
+                il.Emit(SRE.OpCodes.Ldloc_0);
+                il.Emit(SRE.OpCodes.Callvirt, dispose);
+                il.MarkLabel(lb_dispose_Stream);
+                il.EndExceptionBlock();
+                il.Emit(SRE.OpCodes.Ldloc_S, retBytes);
+                il.Emit(SRE.OpCodes.Ret);
             }
 
             _cryptInitMethod.Body.Optimize();
