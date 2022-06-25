@@ -9,7 +9,7 @@ using Mono.Collections.Generic;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
 using MethodBody = Mono.Cecil.Cil.MethodBody;
 
-namespace CryptStr2.Utils
+namespace CryptStr2.Fody
 {
     public static class CecilExtensions
     {
@@ -70,7 +70,7 @@ namespace CryptStr2.Utils
 
         public static int GetAddressSize(this AssemblyDefinition assemblyDefinition)
         {
-            if (Is64BitAssembly(assemblyDefinition))
+            if (assemblyDefinition.Is64BitAssembly())
                 return 8;
             return 4;
         }
@@ -120,7 +120,7 @@ namespace CryptStr2.Utils
         public static bool HasProperty(this Collection<PropertyDefinition> properties, string name)
         {
             var pd = from p in properties where p.Name == name select p;
-            return (pd.Any());
+            return pd.Any();
         }
 
         public static TypeReference Import(this AssemblyDefinition assemblyDefinition, Type type)
@@ -154,7 +154,7 @@ namespace CryptStr2.Utils
 
         public static void AdjustOffsets(this ILProcessor il, MethodBody body, int adjustBy)
         {
-            AdjustOffsets(il, body, new List<int> { 0 }, adjustBy);
+            il.AdjustOffsets(body, new List<int> { 0 }, adjustBy);
         }
 
         public static void AdjustOffsets(this ILProcessor il, MethodBody body, IList<int> offsets, int adjustBy)
