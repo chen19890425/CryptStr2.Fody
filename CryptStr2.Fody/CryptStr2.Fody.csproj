@@ -5,13 +5,14 @@
 		<Authors>cxl</Authors>
 		<Company />
 		<Description>对 dll 中的的字符串字面量加密，比 CryptStr.Fody 有所改进，用 string[] 对字符串缓存。加密数据写入资源文件。</Description>
-		<Version>1.0.13</Version>
+		<Version>1.0.14</Version>
 		<PackageProjectUrl>https://github.com/chen19890425/CryptStr2.Fody</PackageProjectUrl>
 	</PropertyGroup>
 
 	<PropertyGroup>
-		<MonoModFodyHelpers>MonoMod.Common.FodyHelpers</MonoModFodyHelpers>
-		<MonoModFodyHelpersVersion>1.0.1</MonoModFodyHelpersVersion>
+		<PackageReference_001>CecilFodyExtensions</PackageReference_001>
+		<PackageReference_001_AssemblyName>Fody.Extensions</PackageReference_001_AssemblyName>
+		<PackageReference_001_Version>1.0.0</PackageReference_001_Version>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -20,7 +21,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="FodyHelpers" Version="6.3.0" />
-		<PackageReference Include="$(MonoModFodyHelpers)" Version="$(MonoModFodyHelpersVersion)" />
+		<PackageReference Include="$(PackageReference_001)" Version="$(PackageReference_001_Version)" />
 		<PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.18.2" PrivateAssets="All" />
 	</ItemGroup>
 

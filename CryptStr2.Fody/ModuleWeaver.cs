@@ -11,8 +11,8 @@ using Fody;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
+using Mono.Cil;
 using Mono.Collections.Generic;
-using SRE = System.Reflection.Emit;
 
 namespace CryptStr2
 {
@@ -25,7 +25,7 @@ namespace CryptStr2
 
         private int _minLen = 1;
         private int _maxLen = 1000000;
-        private bool _isEncrypt = true;
+        private bool _isEncrypt = false;
         private bool _isRemoveDuplicate = false;
 
         private string _id = Math.Abs(Guid.NewGuid().GetHashCode()).ToString();
@@ -393,7 +393,7 @@ namespace CryptStr2
 
         private void Finish_CryptInit(TypeDefinition moduleType, byte[] key, byte[] dataBytes, int byteCount)
         {
-            var il = new MonoMod.Utils.Cil.CecilILGenerator(_cryptInitMethod.Body.GetILProcessor());
+            var il = new CecilILGenerator(_cryptInitMethod.Body.GetILProcessor());
 
             var resourceName = $"data-{this._id}";
 
@@ -430,35 +430,35 @@ namespace CryptStr2
             var lb_dispose_CryptoStream = il.DefineLabel();
 
             il.IL.Append(il.IL.Create(OpCodes.Ldtoken, moduleType));
-            il.Emit(SRE.OpCodes.Call, getTypeFromHandle);
-            il.Emit(SRE.OpCodes.Callvirt, get_Assembly);
-            il.Emit(SRE.OpCodes.Ldstr, resourceName);
-            il.Emit(SRE.OpCodes.Callvirt, getManifestResourceStream);
-            il.Emit(SRE.OpCodes.Stloc_0);
+            il.Emit(OpCodes.Call, getTypeFromHandle);
+            il.Emit(OpCodes.Callvirt, get_Assembly);
+            il.Emit(OpCodes.Ldstr, resourceName);
+            il.Emit(OpCodes.Callvirt, getManifestResourceStream);
+            il.Emit(OpCodes.Stloc_0);
 
             if (!_isEncrypt)
             {
                 var retBytes = il.DeclareLocal(typeof(byte[]));
 
                 il.BeginExceptionBlock();
-                il.Emit(SRE.OpCodes.Ldc_I4, byteCount);
-                il.Emit(SRE.OpCodes.Newarr, typeof(byte));
-                il.Emit(SRE.OpCodes.Stloc_1);
-                il.Emit(SRE.OpCodes.Ldloc_0);
-                il.Emit(SRE.OpCodes.Ldloc_1);
-                il.Emit(SRE.OpCodes.Ldc_I4_0);
-                il.Emit(SRE.OpCodes.Ldc_I4, byteCount);
-                il.Emit(SRE.OpCodes.Callvirt, readStream);
-                il.Emit(SRE.OpCodes.Pop);
+                il.Emit(OpCodes.Ldc_I4, byteCount);
+                il.Emit(OpCodes.Newarr, typeof(byte));
+                il.Emit(OpCodes.Stloc_1);
+                il.Emit(OpCodes.Ldloc_0);
+                il.Emit(OpCodes.Ldloc_1);
+                il.Emit(OpCodes.Ldc_I4_0);
+                il.Emit(OpCodes.Ldc_I4, byteCount);
+                il.Emit(OpCodes.Callvirt, readStream);
+                il.Emit(OpCodes.Pop);
                 il.BeginFinallyBlock();
-                il.Emit(SRE.OpCodes.Ldloc_0);
-                il.Emit(SRE.OpCodes.Brfalse_S, lb_dispose_Stream);
-                il.Emit(SRE.OpCodes.Ldloc_0);
-                il.Emit(SRE.OpCodes.Callvirt, dispose);
+                il.Emit(OpCodes.Ldloc_0);
+                il.Emit(OpCodes.Brfalse_S, lb_dispose_Stream);
+                il.Emit(OpCodes.Ldloc_0);
+                il.Emit(OpCodes.Callvirt, dispose);
                 il.MarkLabel(lb_dispose_Stream);
                 il.EndExceptionBlock();
-                il.Emit(SRE.OpCodes.Ldloc_1);
-                il.Emit(SRE.OpCodes.Ret);
+                il.Emit(OpCodes.Ldloc_1);
+                il.Emit(OpCodes.Ret);
             }
             else
             {
@@ -474,72 +474,72 @@ namespace CryptStr2
                 var retBytes = il.DeclareLocal(typeof(byte[]));
 
                 il.BeginExceptionBlock();
-                il.Emit(SRE.OpCodes.Ldc_I4, key.Length);
-                il.Emit(SRE.OpCodes.Newarr, typeof(byte));
-                il.Emit(SRE.OpCodes.Stloc_1);
-                il.Emit(SRE.OpCodes.Ldloc_0);
-                il.Emit(SRE.OpCodes.Ldloc_1);
-                il.Emit(SRE.OpCodes.Ldc_I4_0);
-                il.Emit(SRE.OpCodes.Ldc_I4, key.Length);
-                il.Emit(SRE.OpCodes.Callvirt, readStream);
-                il.Emit(SRE.OpCodes.Pop);
-                il.Emit(SRE.OpCodes.Newobj, aesCtor);
-                il.Emit(SRE.OpCodes.Stloc_2);
+                il.Emit(OpCodes.Ldc_I4, key.Length);
+                il.Emit(OpCodes.Newarr, typeof(byte));
+                il.Emit(OpCodes.Stloc_1);
+                il.Emit(OpCodes.Ldloc_0);
+                il.Emit(OpCodes.Ldloc_1);
+                il.Emit(OpCodes.Ldc_I4_0);
+                il.Emit(OpCodes.Ldc_I4, key.Length);
+                il.Emit(OpCodes.Callvirt, readStream);
+                il.Emit(OpCodes.Pop);
+                il.Emit(OpCodes.Newobj, aesCtor);
+                il.Emit(OpCodes.Stloc_2);
                 il.BeginExceptionBlock();
-                il.Emit(SRE.OpCodes.Ldloc_2);
-                il.Emit(SRE.OpCodes.Ldc_I4_1);
-                il.Emit(SRE.OpCodes.Callvirt, setPadding);
-                il.Emit(SRE.OpCodes.Ldloc_2);
-                il.Emit(SRE.OpCodes.Ldloc_1);
-                il.Emit(SRE.OpCodes.Ldloc_1);
-                il.Emit(SRE.OpCodes.Callvirt, createDecryptor);
-                il.Emit(SRE.OpCodes.Stloc_3);
+                il.Emit(OpCodes.Ldloc_2);
+                il.Emit(OpCodes.Ldc_I4_1);
+                il.Emit(OpCodes.Callvirt, setPadding);
+                il.Emit(OpCodes.Ldloc_2);
+                il.Emit(OpCodes.Ldloc_1);
+                il.Emit(OpCodes.Ldloc_1);
+                il.Emit(OpCodes.Callvirt, createDecryptor);
+                il.Emit(OpCodes.Stloc_3);
                 il.BeginExceptionBlock();
-                il.Emit(SRE.OpCodes.Ldloc_0);
-                il.Emit(SRE.OpCodes.Ldloc_3);
-                il.Emit(SRE.OpCodes.Ldc_I4_0);
-                il.Emit(SRE.OpCodes.Newobj, cryptoStreamCtor);
-                il.Emit(SRE.OpCodes.Stloc_S, cryptoStream);
+                il.Emit(OpCodes.Ldloc_0);
+                il.Emit(OpCodes.Ldloc_3);
+                il.Emit(OpCodes.Ldc_I4_0);
+                il.Emit(OpCodes.Newobj, cryptoStreamCtor);
+                il.Emit(OpCodes.Stloc_S, cryptoStream);
                 il.BeginExceptionBlock();
-                il.Emit(SRE.OpCodes.Ldc_I4, byteCount);
-                il.Emit(SRE.OpCodes.Newarr, typeof(byte));
-                il.Emit(SRE.OpCodes.Stloc_S, retBytes);
-                il.Emit(SRE.OpCodes.Ldloc_S, cryptoStream);
-                il.Emit(SRE.OpCodes.Ldloc_S, retBytes);
-                il.Emit(SRE.OpCodes.Ldc_I4_0);
-                il.Emit(SRE.OpCodes.Ldc_I4, byteCount);
-                il.Emit(SRE.OpCodes.Callvirt, readStream);
-                il.Emit(SRE.OpCodes.Pop);
+                il.Emit(OpCodes.Ldc_I4, byteCount);
+                il.Emit(OpCodes.Newarr, typeof(byte));
+                il.Emit(OpCodes.Stloc_S, retBytes);
+                il.Emit(OpCodes.Ldloc_S, cryptoStream);
+                il.Emit(OpCodes.Ldloc_S, retBytes);
+                il.Emit(OpCodes.Ldc_I4_0);
+                il.Emit(OpCodes.Ldc_I4, byteCount);
+                il.Emit(OpCodes.Callvirt, readStream);
+                il.Emit(OpCodes.Pop);
                 il.BeginFinallyBlock();
-                il.Emit(SRE.OpCodes.Ldloc_S, cryptoStream);
-                il.Emit(SRE.OpCodes.Brfalse_S, lb_dispose_CryptoStream);
-                il.Emit(SRE.OpCodes.Ldloc_S, cryptoStream);
-                il.Emit(SRE.OpCodes.Callvirt, dispose);
+                il.Emit(OpCodes.Ldloc_S, cryptoStream);
+                il.Emit(OpCodes.Brfalse_S, lb_dispose_CryptoStream);
+                il.Emit(OpCodes.Ldloc_S, cryptoStream);
+                il.Emit(OpCodes.Callvirt, dispose);
                 il.MarkLabel(lb_dispose_CryptoStream);
                 il.EndExceptionBlock();
                 il.BeginFinallyBlock();
-                il.Emit(SRE.OpCodes.Ldloc_3);
-                il.Emit(SRE.OpCodes.Brfalse_S, lb_dispose_ICryptoTransform);
-                il.Emit(SRE.OpCodes.Ldloc_3);
-                il.Emit(SRE.OpCodes.Callvirt, dispose);
+                il.Emit(OpCodes.Ldloc_3);
+                il.Emit(OpCodes.Brfalse_S, lb_dispose_ICryptoTransform);
+                il.Emit(OpCodes.Ldloc_3);
+                il.Emit(OpCodes.Callvirt, dispose);
                 il.MarkLabel(lb_dispose_ICryptoTransform);
                 il.EndExceptionBlock();
                 il.BeginFinallyBlock();
-                il.Emit(SRE.OpCodes.Ldloc_2);
-                il.Emit(SRE.OpCodes.Brfalse_S, lb_dispose_AesCryptoServiceProvider);
-                il.Emit(SRE.OpCodes.Ldloc_2);
-                il.Emit(SRE.OpCodes.Callvirt, dispose);
+                il.Emit(OpCodes.Ldloc_2);
+                il.Emit(OpCodes.Brfalse_S, lb_dispose_AesCryptoServiceProvider);
+                il.Emit(OpCodes.Ldloc_2);
+                il.Emit(OpCodes.Callvirt, dispose);
                 il.MarkLabel(lb_dispose_AesCryptoServiceProvider);
                 il.EndExceptionBlock();
                 il.BeginFinallyBlock();
-                il.Emit(SRE.OpCodes.Ldloc_0);
-                il.Emit(SRE.OpCodes.Brfalse_S, lb_dispose_Stream);
-                il.Emit(SRE.OpCodes.Ldloc_0);
-                il.Emit(SRE.OpCodes.Callvirt, dispose);
+                il.Emit(OpCodes.Ldloc_0);
+                il.Emit(OpCodes.Brfalse_S, lb_dispose_Stream);
+                il.Emit(OpCodes.Ldloc_0);
+                il.Emit(OpCodes.Callvirt, dispose);
                 il.MarkLabel(lb_dispose_Stream);
                 il.EndExceptionBlock();
-                il.Emit(SRE.OpCodes.Ldloc_S, retBytes);
-                il.Emit(SRE.OpCodes.Ret);
+                il.Emit(OpCodes.Ldloc_S, retBytes);
+                il.Emit(OpCodes.Ret);
             }
 
             _cryptInitMethod.Body.Optimize();
