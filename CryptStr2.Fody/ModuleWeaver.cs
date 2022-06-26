@@ -25,7 +25,7 @@ namespace CryptStr2
 
         private int _minLen = 1;
         private int _maxLen = 1000000;
-        private bool _isEncrypt = false;
+        private bool _isEncrypt = true;
         private bool _isRemoveDuplicate = false;
 
         private string _id = Math.Abs(Guid.NewGuid().GetHashCode()).ToString();
