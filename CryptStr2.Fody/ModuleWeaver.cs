@@ -26,6 +26,7 @@ namespace CryptStr2
         private int _minLen = 1;
         private int _maxLen = 1000000;
         private bool _isEncrypt = true;
+        private bool _isStrRandomOrder = false;
         private bool _isRemoveDuplicate = false;
 
         private string _id = Math.Abs(Guid.NewGuid().GetHashCode()).ToString();
@@ -45,6 +46,7 @@ namespace CryptStr2
                 var minattr = Config.Attribute("MinLen");
                 var maxattr = Config.Attribute("MaxLen");
                 var isEncrypt = Config.Attribute("IsEncrypt");
+                var isStrRandomOrder = Config.Attribute("IsStrRandomOrder");
                 var isRemoveDuplicate = Config.Attribute("IsRemoveDuplicate");
 
                 if (minattr != null)
@@ -60,6 +62,11 @@ namespace CryptStr2
                 if (isEncrypt != null)
                 {
                     bool.TryParse(isEncrypt.Value, out _isEncrypt);
+                }
+
+                if (isStrRandomOrder != null)
+                {
+                    bool.TryParse(isStrRandomOrder.Value, out _isStrRandomOrder);
                 }
 
                 if (isRemoveDuplicate != null)
@@ -561,11 +568,21 @@ namespace CryptStr2
 
                             if (ldstrs.Count > 0)
                             {
+                                if (_isStrRandomOrder)
+                                {
+                                    ldstrs = this.ToRandomList(ldstrs).ToList();
+                                }
+
                                 list.Add(new BodyInfo(methodDefinition.Body, ldstrs));
                             }
                         }
                     }
                 }
+            }
+
+            if (_isStrRandomOrder)
+            {
+                list = this.ToRandomList(list).ToList();
             }
 
             return list;
@@ -587,6 +604,35 @@ namespace CryptStr2
                             break;
                     }
                 }
+            }
+        }
+
+        private T[] ToRandomList<T>(IList<T> list, Random rand = null)
+        {
+            if (list != null && list.Count > 0)
+            {
+                var new_arr = list.ToArray();
+
+                if (rand == null)
+                {
+                    rand = new Random();
+                }
+
+                for (var i = new_arr.Length - 1; i >= 0; i--)
+                {
+                    Swap(ref new_arr[i], ref new_arr[rand.Next(0, i)]);
+                }
+
+                return new_arr;
+            }
+
+            return new T[0];
+
+            void Swap(ref T t1, ref T t2)
+            {
+                var tmp = t1;
+                t1 = t2;
+                t2 = tmp;
             }
         }
 
