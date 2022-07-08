@@ -432,10 +432,7 @@ namespace CryptStr2
             this.ModuleDefinition.Resources.Add(resource);
 
             var lb_dispose_Stream = il.DefineLabel();
-            var lb_dispose_AesCryptoServiceProvider = il.DefineLabel();
-            var lb_dispose_ICryptoTransform = il.DefineLabel();
-            var lb_dispose_CryptoStream = il.DefineLabel();
-
+            
             il.IL.Append(il.IL.Create(OpCodes.Ldtoken, moduleType));
             il.Emit(OpCodes.Call, getTypeFromHandle);
             il.Emit(OpCodes.Callvirt, get_Assembly);
@@ -469,6 +466,10 @@ namespace CryptStr2
             }
             else
             {
+                var lb_dispose_AesCryptoServiceProvider = il.DefineLabel();
+                var lb_dispose_ICryptoTransform = il.DefineLabel();
+                var lb_dispose_CryptoStream = il.DefineLabel();
+
                 var aesCtor = typeof(AesCryptoServiceProvider).GetConstructor(Type.EmptyTypes);
                 var setPadding = typeof(SymmetricAlgorithm).GetMethod("set_Padding", new Type[] { typeof(PaddingMode) });
                 var createDecryptor = typeof(SymmetricAlgorithm).GetMethod("CreateDecryptor", new Type[] { typeof(byte[]), typeof(byte[]) });
