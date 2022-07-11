@@ -432,8 +432,8 @@ namespace CryptStr2
             this.ModuleDefinition.Resources.Add(resource);
 
             var lb_dispose_Stream = il.DefineLabel();
-            
-            il.IL.Append(il.IL.Create(OpCodes.Ldtoken, moduleType));
+
+            il.IL.Emit(OpCodes.Ldtoken, moduleType);
             il.Emit(OpCodes.Call, getTypeFromHandle);
             il.Emit(OpCodes.Callvirt, get_Assembly);
             il.Emit(OpCodes.Ldstr, resourceName);
