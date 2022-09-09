@@ -12,7 +12,7 @@
 	<PropertyGroup>
 		<PackageReference_001>CecilFodyExtensions</PackageReference_001>
 		<PackageReference_001_AssemblyName>Fody.Extensions</PackageReference_001_AssemblyName>
-		<PackageReference_001_Version>1.0.0</PackageReference_001_Version>
+		<PackageReference_001_Version>1.0.1</PackageReference_001_Version>
 	</PropertyGroup>
 
 	<ItemGroup>
