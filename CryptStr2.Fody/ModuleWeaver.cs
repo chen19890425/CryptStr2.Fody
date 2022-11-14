@@ -142,7 +142,7 @@ namespace CryptStr2
                 for (var j = 0; j < body.Ldstrs.Count; j++)
                 {
                     var ldstr = body.Ldstrs[j];
-                    var str = ldstr.Instruction.Operand.ToString();
+                    var str = ldstr.Instruction.Operand.ToString().Replace("\0", "");
                     var bytes = Encoding.UTF8.GetBytes(str);
 
                     ldstr.Info = new Info()
@@ -171,7 +171,7 @@ namespace CryptStr2
             var list_Infos = new List<Info>();
 
             var strs = bodys
-                .SelectMany(m => m.Ldstrs.Select(ins => ins.Instruction.Operand.ToString()))
+                .SelectMany(m => m.Ldstrs.Select(ins => ins.Instruction.Operand.ToString().Replace("\0", "")))
                 .Distinct()
                 .ToArray();
 
@@ -230,26 +230,16 @@ namespace CryptStr2
 
             key = keyGenerator.GetBytes(16);
 
-            using (var aesProvider = new AesCryptoServiceProvider() { Padding = PaddingMode.None })
+            using (var aesProvider = new AesCryptoServiceProvider())
             using (var cryptoTransform = aesProvider.CreateEncryptor(key, key))
             using (var memStream = new MemoryStream())
             using (var cryptoStream = new CryptoStream(memStream, cryptoTransform, CryptoStreamMode.Write))
             {
                 cryptoStream.Write(plainText, 0, plainText.Length);
 
-                if (plainText.Length % 16 != 0)
-                {
-                    byte[] pad = new byte[16 - plainText.Length % 16];
-                    cryptoStream.Write(pad, 0, pad.Length);
-                }
-
                 cryptoStream.FlushFinalBlock();
 
-                byte[] bytes = memStream.GetBuffer();
-                int len = (int)memStream.Length;
-                int pos = (int)memStream.Position;
-
-                return bytes;
+                return memStream.ToArray();
             }
         }
 
@@ -469,16 +459,21 @@ namespace CryptStr2
                 var lb_dispose_AesCryptoServiceProvider = il.DefineLabel();
                 var lb_dispose_ICryptoTransform = il.DefineLabel();
                 var lb_dispose_CryptoStream = il.DefineLabel();
+                var lb_dispose_MemoryStream = il.DefineLabel();
 
                 var aesCtor = typeof(AesCryptoServiceProvider).GetConstructor(Type.EmptyTypes);
                 var setPadding = typeof(SymmetricAlgorithm).GetMethod("set_Padding", new Type[] { typeof(PaddingMode) });
                 var createDecryptor = typeof(SymmetricAlgorithm).GetMethod("CreateDecryptor", new Type[] { typeof(byte[]), typeof(byte[]) });
                 var cryptoStreamCtor = typeof(CryptoStream).GetConstructor(new Type[] { typeof(Stream), typeof(ICryptoTransform), typeof(CryptoStreamMode) });
+                var memoryStreamCtor = typeof(MemoryStream).GetConstructor(Type.EmptyTypes);
+                var streamCopyTo = typeof(Stream).GetMethod("CopyTo", new Type[] { typeof(Stream) });
+                var memoryStreamToArray = typeof(MemoryStream).GetMethod("ToArray");
 
                 var keyBytes = il.DeclareLocal(typeof(byte[]));
                 var aesProvider = il.DeclareLocal(typeof(AesCryptoServiceProvider));
                 var cryptoTransform = il.DeclareLocal(typeof(ICryptoTransform));
                 var cryptoStream = il.DeclareLocal(typeof(CryptoStream));
+                var memoryStream = il.DeclareLocal(typeof(MemoryStream));
                 var retBytes = il.DeclareLocal(typeof(byte[]));
 
                 il.BeginExceptionBlock();
@@ -509,15 +504,22 @@ namespace CryptStr2
                 il.Emit(OpCodes.Newobj, cryptoStreamCtor);
                 il.Emit(OpCodes.Stloc_S, cryptoStream);
                 il.BeginExceptionBlock();
-                il.Emit(OpCodes.Ldc_I4, byteCount);
-                il.Emit(OpCodes.Newarr, typeof(byte));
-                il.Emit(OpCodes.Stloc_S, retBytes);
+                il.Emit(OpCodes.Newobj, memoryStreamCtor);
+                il.Emit(OpCodes.Stloc_S, memoryStream);
+                il.BeginExceptionBlock();
                 il.Emit(OpCodes.Ldloc_S, cryptoStream);
-                il.Emit(OpCodes.Ldloc_S, retBytes);
-                il.Emit(OpCodes.Ldc_I4_0);
-                il.Emit(OpCodes.Ldc_I4, byteCount);
-                il.Emit(OpCodes.Callvirt, readStream);
-                il.Emit(OpCodes.Pop);
+                il.Emit(OpCodes.Ldloc_S, memoryStream);
+                il.Emit(OpCodes.Callvirt, streamCopyTo);
+                il.Emit(OpCodes.Ldloc_S, memoryStream);
+                il.Emit(OpCodes.Callvirt, memoryStreamToArray);
+                il.Emit(OpCodes.Stloc_S, retBytes);
+                il.BeginFinallyBlock();
+                il.Emit(OpCodes.Ldloc_S, memoryStream);
+                il.Emit(OpCodes.Brfalse_S, lb_dispose_MemoryStream);
+                il.Emit(OpCodes.Ldloc_S, memoryStream);
+                il.Emit(OpCodes.Callvirt, dispose);
+                il.MarkLabel(lb_dispose_MemoryStream);
+                il.EndExceptionBlock();
                 il.BeginFinallyBlock();
                 il.Emit(OpCodes.Ldloc_S, cryptoStream);
                 il.Emit(OpCodes.Brfalse_S, lb_dispose_CryptoStream);
