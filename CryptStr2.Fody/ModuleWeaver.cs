@@ -230,7 +230,7 @@ namespace CryptStr2
 
             key = keyGenerator.GetBytes(16);
 
-            using (var aesProvider = new AesCryptoServiceProvider())
+            using (var aesProvider = Aes.Create())
             using (var cryptoTransform = aesProvider.CreateEncryptor(key, key))
             using (var memStream = new MemoryStream())
             using (var cryptoStream = new CryptoStream(memStream, cryptoTransform, CryptoStreamMode.Write))
@@ -456,12 +456,12 @@ namespace CryptStr2
             }
             else
             {
-                var lb_dispose_AesCryptoServiceProvider = il.DefineLabel();
+                var lb_dispose_AesProvider = il.DefineLabel();
                 var lb_dispose_ICryptoTransform = il.DefineLabel();
                 var lb_dispose_CryptoStream = il.DefineLabel();
                 var lb_dispose_MemoryStream = il.DefineLabel();
 
-                var aesCtor = typeof(AesCryptoServiceProvider).GetConstructor(Type.EmptyTypes);
+                var aesCreate = typeof(Aes).GetMethod("Create", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static, null, Type.EmptyTypes, null);
                 var setPadding = typeof(SymmetricAlgorithm).GetMethod("set_Padding", new Type[] { typeof(PaddingMode) });
                 var createDecryptor = typeof(SymmetricAlgorithm).GetMethod("CreateDecryptor", new Type[] { typeof(byte[]), typeof(byte[]) });
                 var cryptoStreamCtor = typeof(CryptoStream).GetConstructor(new Type[] { typeof(Stream), typeof(ICryptoTransform), typeof(CryptoStreamMode) });
@@ -470,7 +470,7 @@ namespace CryptStr2
                 var memoryStreamToArray = typeof(MemoryStream).GetMethod("ToArray");
 
                 var keyBytes = il.DeclareLocal(typeof(byte[]));
-                var aesProvider = il.DeclareLocal(typeof(AesCryptoServiceProvider));
+                var aesProvider = il.DeclareLocal(typeof(Aes));
                 var cryptoTransform = il.DeclareLocal(typeof(ICryptoTransform));
                 var cryptoStream = il.DeclareLocal(typeof(CryptoStream));
                 var memoryStream = il.DeclareLocal(typeof(MemoryStream));
@@ -486,7 +486,7 @@ namespace CryptStr2
                 il.Emit(OpCodes.Ldc_I4, key.Length);
                 il.Emit(OpCodes.Callvirt, readStream);
                 il.Emit(OpCodes.Pop);
-                il.Emit(OpCodes.Newobj, aesCtor);
+                il.Emit(OpCodes.Call, aesCreate);
                 il.Emit(OpCodes.Stloc_2);
                 il.BeginExceptionBlock();
                 il.Emit(OpCodes.Ldloc_2);
@@ -536,10 +536,10 @@ namespace CryptStr2
                 il.EndExceptionBlock();
                 il.BeginFinallyBlock();
                 il.Emit(OpCodes.Ldloc_2);
-                il.Emit(OpCodes.Brfalse_S, lb_dispose_AesCryptoServiceProvider);
+                il.Emit(OpCodes.Brfalse_S, lb_dispose_AesProvider);
                 il.Emit(OpCodes.Ldloc_2);
                 il.Emit(OpCodes.Callvirt, dispose);
-                il.MarkLabel(lb_dispose_AesCryptoServiceProvider);
+                il.MarkLabel(lb_dispose_AesProvider);
                 il.EndExceptionBlock();
                 il.BeginFinallyBlock();
                 il.Emit(OpCodes.Ldloc_0);
