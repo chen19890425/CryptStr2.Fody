@@ -142,7 +142,7 @@ namespace CryptStr2
                 for (var j = 0; j < body.Ldstrs.Count; j++)
                 {
                     var ldstr = body.Ldstrs[j];
-                    var str = ldstr.Instruction.Operand.ToString().Replace("\0", "");
+                    var str = ldstr.Instruction.Operand.ToString();
                     var bytes = Encoding.UTF8.GetBytes(str);
 
                     ldstr.Info = new Info()
@@ -171,7 +171,7 @@ namespace CryptStr2
             var list_Infos = new List<Info>();
 
             var strs = bodys
-                .SelectMany(m => m.Ldstrs.Select(ins => ins.Instruction.Operand.ToString().Replace("\0", "")))
+                .SelectMany(m => m.Ldstrs.Select(ins => ins.Instruction.Operand.ToString()))
                 .Distinct()
                 .ToArray();
 
