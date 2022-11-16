@@ -291,6 +291,7 @@ namespace CryptStr2
             var body = cctor.Body;
 
             body.SimplifyMacros();
+
             List<Instruction> returnPoints = body.Instructions.Where((Instruction x) => x.OpCode == OpCodes.Ret).ToList();
 
             foreach (Instruction instruction in returnPoints)
