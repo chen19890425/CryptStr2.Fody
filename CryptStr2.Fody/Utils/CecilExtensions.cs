@@ -16,7 +16,9 @@ namespace CryptStr2.Fody
         public static void Replace(this Collection<Instruction> collection, Instruction instruction, IEnumerable<Instruction> instructions)
         {
             int indexOf = collection.IndexOf(instruction);
+
             collection.RemoveAt(indexOf);
+
             foreach (Instruction instruction2 in instructions)
             {
                 collection.Insert(indexOf, instruction2);
@@ -27,10 +29,18 @@ namespace CryptStr2.Fody
         public static TypeDefinition GetTypeDefinition(this TypeReference typeReference)
         {
             if (typeReference == null)
+            {
                 return null;
+            }
+
             foreach (TypeDefinition td in typeReference.Module.GetAllTypes())
+            {
                 if (td.FullName == typeReference.FullName)
+                {
                     return td;
+                }
+            }
+
             return null;
         }
 
@@ -60,6 +70,7 @@ namespace CryptStr2.Fody
         {
             TypeReference declaringType = methodDef.DeclaringType;
             ModuleDefinition module = declaringType.Module;
+
             return module.ImportReference(localType);
         }
 
@@ -71,13 +82,20 @@ namespace CryptStr2.Fody
         public static int GetAddressSize(this AssemblyDefinition assemblyDefinition)
         {
             if (assemblyDefinition.Is64BitAssembly())
+            {
                 return 8;
+            }
+
             return 4;
         }
 
         public static bool Is64BitAssembly(this AssemblyDefinition assemblyDefinition)
         {
-            if (assemblyDefinition == null) throw new ArgumentNullException("assemblyDefinition");
+            if (assemblyDefinition == null)
+            {
+                throw new ArgumentNullException(nameof(assemblyDefinition));
+            }
+
             switch (assemblyDefinition.MainModule.Architecture)
             {
                 case TargetArchitecture.AMD64:
@@ -91,59 +109,82 @@ namespace CryptStr2.Fody
         public static MethodDefinition FindMethod(this Collection<MethodDefinition> methods, string methodName, Collection<ParameterDefinition> parameters)
         {
             var defs = from m in methods where m.Name == methodName select m;
+
             foreach (MethodDefinition def in defs)
             {
                 if (def.Parameters.Count == parameters.Count)
                 {
                     bool isMatch = true;
+
                     for (int i = 0; i < def.Parameters.Count && isMatch; i++)
                     {
                         if (def.Parameters[i].ParameterType.Name != parameters[i].ParameterType.Name)
+                        {
                             isMatch = false;
+                        }
                     }
 
                     if (isMatch)
+                    {
                         return def;
+                    }
                 }
             }
+
             return null;
         }
 
         public static PropertyDefinition[] FindProperty(this Collection<PropertyDefinition> properties, string name)
         {
             var pd = from p in properties where p.Name == name select p;
+
             if (pd.Any())
+            {
                 return pd.ToArray();
+            }
+
             return new PropertyDefinition[0];
         }
 
         public static bool HasProperty(this Collection<PropertyDefinition> properties, string name)
         {
             var pd = from p in properties where p.Name == name select p;
+
             return pd.Any();
         }
 
         public static TypeReference Import(this AssemblyDefinition assemblyDefinition, Type type)
         {
-            if (assemblyDefinition == null) throw new ArgumentNullException("assemblyDefinition");
+            if (assemblyDefinition == null)
+            {
+                throw new ArgumentNullException(nameof(assemblyDefinition));
+            }
+
             return assemblyDefinition.MainModule.ImportReference(type);
         }
 
         public static MethodReference Import(this AssemblyDefinition assemblyDefinition, MethodBase methodBase)
         {
-            if (assemblyDefinition == null) throw new ArgumentNullException("assemblyDefinition");
+            if (assemblyDefinition == null)
+            {
+                throw new ArgumentNullException(nameof(assemblyDefinition));
+            }
+
             return assemblyDefinition.MainModule.ImportReference(methodBase);
         }
 
         public static MethodBody CreateDefaultConstructor(this AssemblyDefinition assembly, TypeDefinition typeDefinition)
         {
-            MethodDefinition ctor = new MethodDefinition(".ctor",
+            MethodDefinition ctor = new MethodDefinition(
+                ".ctor",
                 MethodAttributes.Public | MethodAttributes.HideBySig |
                 MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
                 assembly.Import(typeof(void)));
 
             typeDefinition.Methods.Add(ctor);
+
             ctor.Body = new MethodBody(ctor);
+
             return ctor.Body;
         }
 
@@ -160,7 +201,9 @@ namespace CryptStr2.Fody
         public static void AdjustOffsets(this ILProcessor il, MethodBody body, IList<int> offsets, int adjustBy)
         {
             if (offsets.Count == 0)
+            {
                 return;
+            }
 
             List<int> seenHashCodes = new List<int>();
 
@@ -172,22 +215,31 @@ namespace CryptStr2.Fody
                 {
                     Instruction target = (Instruction)instruction.Operand;
                     int hashCode = target.GetHashCode();
+
                     if (seenHashCodes.Contains(hashCode))
+                    {
                         continue;
+                    }
+
                     seenHashCodes.Add(hashCode);
 
                     OpCode opCode = instruction.OpCode;
 
                     int originalOffset = target.Offset;
                     int offset = target.Offset;
+
                     foreach (int movedOffsets in offsets)
                     {
                         if (originalOffset > movedOffsets)
+                        {
                             offset += adjustBy;
+                        }
                     }
+
                     target.Offset = offset;
 
                     Instruction newInstr = il.Create(opCode, target);
+
                     il.Replace(instruction, newInstr);
                 }
                 else if (instruction.Operand is Instruction[])
@@ -197,20 +249,30 @@ namespace CryptStr2.Fody
                     foreach (Instruction target in targets)
                     {
                         int hashCode = target.GetHashCode();
+
                         if (seenHashCodes.Contains(hashCode))
+                        {
                             continue;
+                        }
+
                         seenHashCodes.Add(hashCode);
 
                         int originalOffset = target.Offset;
                         int offset = target.Offset;
+
                         foreach (int movedOffsets in offsets)
                         {
                             if (originalOffset > movedOffsets)
+                            {
                                 offset += adjustBy;
+                            }
                         }
+
                         target.Offset = offset;
                     }
+
                     Instruction newInstr = il.Create(instruction.OpCode, targets);
+
                     il.Replace(instruction, newInstr);
                 }
             }
@@ -219,16 +281,23 @@ namespace CryptStr2.Fody
             {
                 Instruction target = handler.TryStart;
                 int hashCode = target.GetHashCode();
+
                 if (seenHashCodes.Contains(hashCode))
+                {
                     continue;
+                }
+
                 seenHashCodes.Add(hashCode);
 
                 int originalOffset = target.Offset;
                 int offset = target.Offset;
+
                 foreach (int movedOffsets in offsets)
                 {
                     if (originalOffset > movedOffsets)
+                    {
                         offset += adjustBy;
+                    }
                 }
 
                 target.Offset = offset;

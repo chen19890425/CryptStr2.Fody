@@ -4,7 +4,7 @@
 
 		<ItemGroup>
 			<InputAssemblies Include="$(OutputPath)$(TargetName)$(TargetExt)"/>
-			<InputAssemblies Include="$(NuGetPackageRoot)\$(PackageReference_001.ToLower())\$(PackageReference_001_Version)\lib\$(TargetFramework)\$(PackageReference_001_AssemblyName).dll" />
+			<InputAssemblies Include="$(CecilFodyExtensionsFilePath)" />
 		</ItemGroup>
 
 		<ILRepack

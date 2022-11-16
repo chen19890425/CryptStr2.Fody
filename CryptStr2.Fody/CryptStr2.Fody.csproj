@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk" InitialTargets="TestValue">
 
 	<PropertyGroup>
 		<TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
@@ -9,20 +9,18 @@
 		<PackageProjectUrl>https://github.com/chen19890425/CryptStr2.Fody</PackageProjectUrl>
 	</PropertyGroup>
 
-	<PropertyGroup>
-		<PackageReference_001>CecilFodyExtensions</PackageReference_001>
-		<PackageReference_001_AssemblyName>Fody.Extensions</PackageReference_001_AssemblyName>
-		<PackageReference_001_Version>1.0.1</PackageReference_001_Version>
-	</PropertyGroup>
-
 	<ItemGroup>
 		<None Remove="ILRepack.targets" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="FodyHelpers" Version="6.3.0" />
-		<PackageReference Include="$(PackageReference_001)" Version="$(PackageReference_001_Version)" />
+		<PackageReference Include="CecilFodyExtensions" Version="1.0.2" />
 		<PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.18.2" PrivateAssets="All" />
 	</ItemGroup>
+
+	<Target Name="TestValue">
+		<Message Importance="high" Text="CecilFodyExtensionsFilePath -> $(CecilFodyExtensionsFilePath)" />
+	</Target>
 
 </Project>

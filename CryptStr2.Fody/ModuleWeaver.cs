@@ -29,7 +29,7 @@ namespace CryptStr2
         private bool _isStrRandomOrder = false;
         private bool _isRemoveDuplicate = false;
 
-        private string _id = Math.Abs(Guid.NewGuid().GetHashCode()).ToString();
+        private string _id = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss_ffff");
 
         private FieldDefinition _decryptedField;
         private FieldDefinition _stringsArrayField;
@@ -224,11 +224,7 @@ namespace CryptStr2
 
         private byte[] EncryptBytes(byte[] plainText, out byte[] key)
         {
-            string pw = Guid.NewGuid().ToString();
-            byte[] salt = Guid.NewGuid().ToByteArray();
-            var keyGenerator = new Rfc2898DeriveBytes(pw, salt);
-
-            key = keyGenerator.GetBytes(16);
+            key = Guid.NewGuid().ToByteArray();
 
             using (var aesProvider = Aes.Create())
             using (var cryptoTransform = aesProvider.CreateEncryptor(key, key))
@@ -247,8 +243,11 @@ namespace CryptStr2
         {
             var value = typeof(ModuleWeaver).Assembly.GetName().Version.ToString();
             var attr = new CustomAttribute(ModuleDefinition.ImportReference(typeof(GeneratedCodeAttribute).GetConstructors()[0]));
+
             attr.ConstructorArguments.Add(new CustomAttributeArgument(ModuleDefinition.ImportReference(typeof(string)), $"{typeof(ModuleWeaver).Namespace}.Fody"));
+
             attr.ConstructorArguments.Add(new CustomAttributeArgument(ModuleDefinition.ImportReference(typeof(string)), value));
+
             attrs.Add(attr);
 
             attrs.Add(new CustomAttribute(ModuleDefinition.ImportReference(typeof(DebuggerNonUserCodeAttribute).GetConstructors()[0])));
@@ -392,7 +391,7 @@ namespace CryptStr2
         {
             var il = new CecilILGenerator(_cryptInitMethod.Body.GetILProcessor());
 
-            var resourceName = $"data-{this._id}";
+            var resourceName = $"data_{this._id}";
 
             var dispose = typeof(IDisposable).GetMethod("Dispose", Type.EmptyTypes);
             var readStream = typeof(Stream).GetMethod("Read", new Type[] { typeof(byte[]), typeof(int), typeof(int) });
