@@ -462,7 +462,6 @@ namespace CryptStr2
                 var lb_dispose_MemoryStream = il.DefineLabel();
 
                 var aesCreate = typeof(Aes).GetMethod("Create", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static, null, Type.EmptyTypes, null);
-                var setPadding = typeof(SymmetricAlgorithm).GetMethod("set_Padding", new Type[] { typeof(PaddingMode) });
                 var createDecryptor = typeof(SymmetricAlgorithm).GetMethod("CreateDecryptor", new Type[] { typeof(byte[]), typeof(byte[]) });
                 var cryptoStreamCtor = typeof(CryptoStream).GetConstructor(new Type[] { typeof(Stream), typeof(ICryptoTransform), typeof(CryptoStreamMode) });
                 var memoryStreamCtor = typeof(MemoryStream).GetConstructor(Type.EmptyTypes);
@@ -489,9 +488,6 @@ namespace CryptStr2
                 il.Emit(OpCodes.Call, aesCreate);
                 il.Emit(OpCodes.Stloc_2);
                 il.BeginExceptionBlock();
-                il.Emit(OpCodes.Ldloc_2);
-                il.Emit(OpCodes.Ldc_I4_1);
-                il.Emit(OpCodes.Callvirt, setPadding);
                 il.Emit(OpCodes.Ldloc_2);
                 il.Emit(OpCodes.Ldloc_1);
                 il.Emit(OpCodes.Ldloc_1);
