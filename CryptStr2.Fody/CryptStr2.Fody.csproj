@@ -15,7 +15,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="FodyHelpers" Version="6.3.0" />
-		<PackageReference Include="CecilFodyExtensions" Version="1.0.2" />
+		<PackageReference Include="CecilFodyExtensions" Version="1.0.3" />
 		<PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.18.2" PrivateAssets="All" />
 	</ItemGroup>
 
