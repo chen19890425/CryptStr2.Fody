@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using CryptStr2;
 
 namespace Fody.Tests
 {
@@ -10,7 +9,7 @@ namespace Fody.Tests
         {
             var result = WeaverTestHelper.ExecuteTestRun(
                 new ModuleWeaver(),
-                Path.Combine(AppContext.BaseDirectory, "dlls", "Clock.exe"),
+                Path.Combine(AppContext.BaseDirectory, "../../../../TestDll/bin", "TestDll.exe"),
                 runPeVerify: false,
                 writeSymbols: false);
 
