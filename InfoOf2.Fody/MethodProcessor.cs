@@ -61,10 +61,14 @@ public partial class ModuleWeaver
 
         using var ilProcessor = new ILProcessor(method.Body);
 
+        method.Body.SimplifyMacros();
+
         foreach (var action in actions)
         {
             action(ilProcessor);
         }
+
+        method.Body.OptimizeMacros();
     }
 
     TypeReference GetTypeReference(string assemblyName, string typeName)
@@ -138,6 +142,6 @@ public partial class ModuleWeaver
             WriteError("Expected a string");
         }
 
-        return (string) previous.Operand;
+        return (string)previous.Operand;
     }
 }
