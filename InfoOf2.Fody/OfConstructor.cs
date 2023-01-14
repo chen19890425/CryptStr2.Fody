@@ -45,9 +45,11 @@ public partial class ModuleWeaver
 
         MethodReference methodReference;
 
-        if (typeReferenceData.TypeReference.IsGenericInstance)
+        if (typeDefinition.HasGenericParameters)
         {
-            methodReference = new MethodReference(method.Name, method.ReturnType, typeReferenceData.TypeReference);
+            var typeReference = typeReferenceData.TypeReference as GenericInstanceType;
+
+            methodReference = ModuleDefinition.ImportGenericMethodInstance(method, typeReference.GenericArguments.ToArray());
         }
         else
         {
@@ -72,6 +74,6 @@ public partial class ModuleWeaver
             instruction.Operand = getMethodFromHandle;
         }
 
-        ilProcessor.InsertAfter(instruction, Instruction.Create(OpCodes.Isinst, constructorInfoType));
+        ilProcessor.InsertAfter(instruction, Instruction.Create(OpCodes.Castclass, constructorInfoType));
     }
 }

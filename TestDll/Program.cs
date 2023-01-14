@@ -12,13 +12,15 @@ namespace TestDll
     {
         public static void Main()
         {
+            Info.OfConstructor<object>();
+
             var m = Info.OfMethod<Action<string>>(nameof(Action<string>.Invoke));
 
             var m2 = Info.OfMethod<string>(nameof(string.Clone));
 
             Info.OfMethod<Type>(nameof(Type.GetTypeFromHandle));
 
-            var c = Info.OfConstructor<Action<string>>("Object, IntPtr");
+            var c = Info.OfConstructor<Action<string>>();
 
             var mt = Info.OfMethod<int>("TryParse", $"{nameof(String)}, {nameof(Int32)}&");
 

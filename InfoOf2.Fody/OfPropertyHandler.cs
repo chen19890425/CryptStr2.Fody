@@ -51,6 +51,6 @@ public partial class ModuleWeaver
             instruction.Operand = getMethodFromHandle;
         }
 
-        ilProcessor.InsertAfter(instruction, Instruction.Create(OpCodes.Isinst, methodInfoType));
+        ilProcessor.InsertAfter(instruction, Instruction.Create(OpCodes.Castclass, methodInfoType));
     }
 }
