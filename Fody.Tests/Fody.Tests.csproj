@@ -14,7 +14,13 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\InfoOf2.Fody\InfoOf2.Fody.csproj" />
+		<ProjectReference Include="..\CryptStr2.Fody\CryptStr2.Fody.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="dlls\Clock.exe">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
 	</ItemGroup>
 
 </Project>
