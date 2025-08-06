@@ -28,6 +28,7 @@ namespace CryptStr2
         private bool _isEncrypt = true;
         private bool _isStrRandomOrder = false;
         private bool _isRemoveDuplicate = false;
+        private bool _isRemovePrivateConsts = true;
 
         private string _id = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss_ffff");
 
@@ -48,6 +49,7 @@ namespace CryptStr2
                 var isEncrypt = Config.Attribute("IsEncrypt");
                 var isStrRandomOrder = Config.Attribute("IsStrRandomOrder");
                 var isRemoveDuplicate = Config.Attribute("IsRemoveDuplicate");
+                var isRemovePrivateConsts = Config.Attribute("IsRemovePrivateConsts");
 
                 if (minattr != null)
                 {
@@ -73,6 +75,16 @@ namespace CryptStr2
                 {
                     bool.TryParse(isRemoveDuplicate.Value, out _isRemoveDuplicate);
                 }
+
+                if (isRemovePrivateConsts != null)
+                {
+                    bool.TryParse(isRemovePrivateConsts.Value, out _isRemovePrivateConsts);
+                }
+            }
+
+            if (_isRemovePrivateConsts)
+            {
+                RemovePrivateConsts();
             }
 
             Model model;
@@ -549,6 +561,25 @@ namespace CryptStr2
             }
 
             _cryptInitMethod.Body.Optimize();
+        }
+
+        private void RemovePrivateConsts()
+        {
+            foreach (var moduleDefinition in ModuleDefinition.Assembly.Modules)
+            {
+                foreach (var typeDefinition in moduleDefinition.GetAllTypes())
+                {
+                    var fields = typeDefinition.Fields.ToList();
+
+                    foreach (var field in fields)
+                    {
+                        if (field.IsStatic && field.IsPrivate && field.IsLiteral)
+                        {
+                            typeDefinition.Fields.Remove(field);
+                        }
+                    }
+                }
+            }
         }
 
         private List<BodyInfo> FindAllStrings()
